@@ -3,14 +3,16 @@ import { useGps } from "@/hooks/use-gps";
 import {
   HikeAttempt,
   Split,
-  BCMC_MARKERS,
+  MAX_MARKERS,
   formatDuration,
   formatSplitDiff,
   loadAttempts,
   saveAttempts,
   createAttempt,
+  recordMarkerGps,
+  GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, Timer, TrendingUp } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
@@ -31,6 +33,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
     const map = new Map<number, number>();
     for (const a of attempts) {
       for (const s of a.splits) {
+        if (s.skipped) continue;
         const current = map.get(s.marker);
         if (current === undefined || s.elapsed < current) {
           map.set(s.marker, s.elapsed);
@@ -66,6 +69,15 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
     }
   }, [position, isRunning]);
 
+  const currentCoord = useCallback((): GpsCoord | undefined => {
+    if (!position) return undefined;
+    return {
+      latitude: position.latitude,
+      longitude: position.longitude,
+      altitude: position.altitude,
+    };
+  }, [position]);
+
   const handleStart = useCallback(() => {
     const a = createAttempt();
     setAttempt(a);
@@ -76,7 +88,30 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
   const handleMarker = useCallback(() => {
     if (!attempt || !isRunning) return;
     const nextMarker = attempt.splits.length + 1;
-    if (nextMarker > 28) return;
+    if (nextMarker > MAX_MARKERS) return;
+
+    const now = Date.now();
+    const coord = currentCoord();
+    const split: Split = {
+      marker: nextMarker,
+      timestamp: now,
+      elapsed: now - attempt.startTime,
+      elevation: position?.altitude ?? undefined,
+      coords: coord,
+    };
+
+    // Save GPS data for this marker
+    if (coord) {
+      recordMarkerGps(nextMarker, coord);
+    }
+
+    setAttempt((prev) => (prev ? { ...prev, splits: [...prev.splits, split] } : prev));
+  }, [attempt, isRunning, position, currentCoord]);
+
+  const handleForgot = useCallback(() => {
+    if (!attempt || !isRunning) return;
+    const nextMarker = attempt.splits.length + 1;
+    if (nextMarker > MAX_MARKERS) return;
 
     const now = Date.now();
     const split: Split = {
@@ -84,6 +119,8 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
       timestamp: now,
       elapsed: now - attempt.startTime,
       elevation: position?.altitude ?? undefined,
+      skipped: true,
+      // No coords stored for skipped markers
     };
 
     setAttempt((prev) => (prev ? { ...prev, splits: [...prev.splits, split] } : prev));
@@ -116,7 +153,10 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
           <Mountain className="w-16 h-16 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">BCMC Trail</h1>
           <p className="text-muted-foreground text-center text-sm">
-            2.5 km · 853m elevation · 28 markers
+            2.5 km · 853m elevation
+          </p>
+          <p className="text-muted-foreground text-center text-xs">
+            Start at Grouse Grind timer card trailhead scan
           </p>
         </div>
 
@@ -136,7 +176,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
         </Button>
 
         <p className="text-muted-foreground text-xs text-center max-w-xs">
-          Tap marker buttons as you pass each trail marker. GPS tracks your elevation automatically.
+          Tap marker buttons as you pass each BCMC trail marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.
         </p>
       </div>
     );
@@ -160,17 +200,27 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
         </div>
       </div>
 
-      {/* Marker button */}
-      <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-6">
-        {nextMarker <= 28 ? (
-          <button
-            onClick={handleMarker}
-            className="w-36 h-36 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
-          >
-            <MapPin className="w-8 h-8 text-primary" />
-            <span className="text-3xl font-bold text-primary">{nextMarker}</span>
-            <span className="text-xs text-muted-foreground">Tap at marker</span>
-          </button>
+      {/* Marker buttons */}
+      <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-4">
+        {nextMarker <= MAX_MARKERS ? (
+          <>
+            <button
+              onClick={handleMarker}
+              className="w-36 h-36 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+            >
+              <MapPin className="w-8 h-8 text-primary" />
+              <span className="text-3xl font-bold text-primary">{nextMarker}</span>
+              <span className="text-xs text-muted-foreground">Tap at marker</span>
+            </button>
+
+            <button
+              onClick={handleForgot}
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform"
+            >
+              <SkipForward className="w-4 h-4" />
+              Forgot marker {nextMarker}
+            </button>
+          </>
         ) : (
           <div className="text-center text-primary">
             <Flag className="w-10 h-10 mx-auto mb-2" />
@@ -179,7 +229,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
         )}
 
         {/* Last split info */}
-        {lastSplit && (
+        {lastSplit && !lastSplit.skipped && (
           <div className="bg-card border border-border rounded-xl p-4 w-full max-w-sm">
             <div className="flex justify-between items-center">
               <span className="text-sm text-muted-foreground">Marker {lastSplit.marker}</span>
@@ -196,22 +246,31 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
             })()}
           </div>
         )}
+        {lastSplit?.skipped && (
+          <div className="bg-muted/30 border border-border rounded-xl p-3 w-full max-w-sm text-center text-xs text-muted-foreground">
+            Marker {lastSplit.marker} skipped (forgot)
+          </div>
+        )}
 
         {/* Splits list */}
         {attempt && attempt.splits.length > 0 && (
           <div className="w-full max-w-sm">
             <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Splits</h3>
             <div className="space-y-1.5">
-              {[...attempt.splits].reverse().map((s, i) => {
+              {[...attempt.splits].reverse().map((s) => {
                 const prevSplit = attempt.splits[attempt.splits.indexOf(s) - 1];
                 const segmentTime = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
                 return (
-                  <div key={s.marker} className="flex items-center justify-between bg-muted/50 rounded-lg px-3 py-2 text-sm">
+                  <div key={s.marker} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${s.skipped ? "bg-muted/20 opacity-50" : "bg-muted/50"}`}>
                     <div className="flex items-center gap-2">
-                      <span className="w-6 h-6 rounded-full bg-primary/20 text-primary text-xs font-bold flex items-center justify-center">
+                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${s.skipped ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"}`}>
                         {s.marker}
                       </span>
-                      <span className="text-muted-foreground">+{formatDuration(segmentTime)}</span>
+                      {s.skipped ? (
+                        <span className="text-muted-foreground italic text-xs">skipped</span>
+                      ) : (
+                        <span className="text-muted-foreground">+{formatDuration(segmentTime)}</span>
+                      )}
                     </div>
                     <span className="font-mono-display text-xs">{formatDuration(s.elapsed)}</span>
                   </div>
@@ -231,7 +290,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
           className="w-full gap-2"
         >
           <Square className="w-5 h-5" />
-          Finish Hike
+          Finish at Lodge
         </Button>
       </div>
     </div>

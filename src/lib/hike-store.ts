@@ -1,16 +1,21 @@
-// BCMC Trail has markers roughly numbered 1-28
+// BCMC Trail — markers up to ~50 (unconfirmed exact count)
 // Elevation: ~290m (base) to ~1,128m (top), ~853m gain over ~2.5km
 
-export const BCMC_MARKERS = Array.from({ length: 28 }, (_, i) => ({
-  number: i + 1,
-  estimatedElevation: Math.round(290 + ((i) / 27) * 853),
-}));
+export const MAX_MARKERS = 50;
+
+export interface GpsCoord {
+  latitude: number;
+  longitude: number;
+  altitude: number | null;
+}
 
 export interface Split {
   marker: number;
   timestamp: number; // ms since epoch
   elapsed: number; // ms since hike start
   elevation?: number;
+  coords?: GpsCoord; // GPS location when marker was tapped
+  skipped?: boolean; // true if marker was missed and retroactively inserted
 }
 
 export interface HikeAttempt {
@@ -24,7 +29,13 @@ export interface HikeAttempt {
   completed: boolean;
 }
 
+// Averaged GPS coordinates per marker across all attempts
+export interface MarkerGpsData {
+  [marker: number]: { latitudes: number[]; longitudes: number[]; altitudes: number[] };
+}
+
 const STORAGE_KEY = "bcmc-hike-attempts";
+const MARKER_GPS_KEY = "bcmc-marker-gps";
 
 export function loadAttempts(): HikeAttempt[] {
   try {
@@ -37,6 +48,51 @@ export function loadAttempts(): HikeAttempt[] {
 
 export function saveAttempts(attempts: HikeAttempt[]) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(attempts));
+}
+
+export function loadMarkerGps(): MarkerGpsData {
+  try {
+    const raw = localStorage.getItem(MARKER_GPS_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+export function saveMarkerGps(data: MarkerGpsData) {
+  localStorage.setItem(MARKER_GPS_KEY, JSON.stringify(data));
+}
+
+/** Record a GPS coordinate sample for a marker (for future auto-detection) */
+export function recordMarkerGps(marker: number, coord: GpsCoord) {
+  if (coord.latitude === 0 && coord.longitude === 0) return;
+  const data = loadMarkerGps();
+  if (!data[marker]) {
+    data[marker] = { latitudes: [], longitudes: [], altitudes: [] };
+  }
+  data[marker].latitudes.push(coord.latitude);
+  data[marker].longitudes.push(coord.longitude);
+  if (coord.altitude != null) {
+    data[marker].altitudes.push(coord.altitude);
+  }
+  saveMarkerGps(data);
+}
+
+export function getAverageMarkerPositions(): Map<number, { lat: number; lng: number; alt: number | null; samples: number }> {
+  const data = loadMarkerGps();
+  const map = new Map<number, { lat: number; lng: number; alt: number | null; samples: number }>();
+  for (const [key, val] of Object.entries(data)) {
+    const marker = Number(key);
+    const n = val.latitudes.length;
+    if (n === 0) continue;
+    const lat = val.latitudes.reduce((a, b) => a + b, 0) / n;
+    const lng = val.longitudes.reduce((a, b) => a + b, 0) / n;
+    const alt = val.altitudes.length > 0
+      ? val.altitudes.reduce((a, b) => a + b, 0) / val.altitudes.length
+      : null;
+    map.set(marker, { lat, lng, alt, samples: n });
+  }
+  return map;
 }
 
 export function createAttempt(): HikeAttempt {
