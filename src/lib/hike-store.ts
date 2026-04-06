@@ -1,7 +1,10 @@
 // BCMC Trail — markers up to ~50 (unconfirmed exact count)
-// Elevation: ~290m (base) to ~1,128m (top), ~853m gain over ~2.5km
+// Official stats from grousemountain.com/BCMC: 2.9 km, 750m elevation gain
 
 export const MAX_MARKERS = 50;
+export const TRAIL_DISTANCE_KM = 2.9;
+export const TRAIL_ELEVATION_GAIN = 750;
+export const TRAIL_BASE_ELEVATION = 290;
 
 export interface GpsCoord {
   latitude: number;

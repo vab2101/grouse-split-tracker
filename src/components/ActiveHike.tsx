@@ -15,7 +15,7 @@ import {
   clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
