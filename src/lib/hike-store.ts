@@ -36,6 +36,28 @@ export interface MarkerGpsData {
 
 const STORAGE_KEY = "bcmc-hike-attempts";
 const MARKER_GPS_KEY = "bcmc-marker-gps";
+const ACTIVE_HIKE_KEY = "bcmc-active-hike";
+
+export function saveActiveHike(attempt: HikeAttempt | null) {
+  if (attempt) {
+    localStorage.setItem(ACTIVE_HIKE_KEY, JSON.stringify(attempt));
+  } else {
+    localStorage.removeItem(ACTIVE_HIKE_KEY);
+  }
+}
+
+export function loadActiveHike(): HikeAttempt | null {
+  try {
+    const raw = localStorage.getItem(ACTIVE_HIKE_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch {
+    return null;
+  }
+}
+
+export function clearActiveHike() {
+  localStorage.removeItem(ACTIVE_HIKE_KEY);
+}
 
 export function loadAttempts(): HikeAttempt[] {
   try {

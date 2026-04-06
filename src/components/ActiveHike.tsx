@@ -10,6 +10,9 @@ import {
   saveAttempts,
   createAttempt,
   recordMarkerGps,
+  saveActiveHike,
+  loadActiveHike,
+  clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
 import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward } from "lucide-react";
@@ -17,15 +20,27 @@ import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
   onFinish: () => void;
+  onActiveChange?: (active: boolean) => void;
 }
 
-export default function ActiveHike({ onFinish }: ActiveHikeProps) {
-  const [attempt, setAttempt] = useState<HikeAttempt | null>(null);
+export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
+  const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
   const [elapsed, setElapsed] = useState(0);
-  const [isRunning, setIsRunning] = useState(false);
+  const [isRunning, setIsRunning] = useState(() => loadActiveHike() !== null);
+
+  // Notify parent of active state
+  useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
   const { position, error: gpsError } = useGps(isRunning);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const bestSplits = useRef<Map<number, number>>(new Map());
+
+  // beforeunload guard
+  useEffect(() => {
+    if (!isRunning) return;
+    const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isRunning]);
 
   // Load best splits from history
   useEffect(() => {
@@ -81,6 +96,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
   const handleStart = useCallback(() => {
     const a = createAttempt();
     setAttempt(a);
+    saveActiveHike(a);
     setElapsed(0);
     setIsRunning(true);
   }, []);
@@ -105,7 +121,12 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
       recordMarkerGps(nextMarker, coord);
     }
 
-    setAttempt((prev) => (prev ? { ...prev, splits: [...prev.splits, split] } : prev));
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, splits: [...prev.splits, split] };
+      saveActiveHike(updated);
+      return updated;
+    });
   }, [attempt, isRunning, position, currentCoord]);
 
   const handleForgot = useCallback(() => {
@@ -123,7 +144,12 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
       // No coords stored for skipped markers
     };
 
-    setAttempt((prev) => (prev ? { ...prev, splits: [...prev.splits, split] } : prev));
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, splits: [...prev.splits, split] };
+      saveActiveHike(updated);
+      return updated;
+    });
   }, [attempt, isRunning, position]);
 
   const handleFinish = useCallback(() => {
@@ -138,6 +164,7 @@ export default function ActiveHike({ onFinish }: ActiveHikeProps) {
     setIsRunning(false);
     const attempts = loadAttempts();
     saveAttempts([finished, ...attempts]);
+    clearActiveHike();
     setAttempt(null);
     onFinish();
   }, [attempt, onFinish]);
