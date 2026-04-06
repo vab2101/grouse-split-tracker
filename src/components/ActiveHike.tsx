@@ -23,10 +23,13 @@ interface ActiveHikeProps {
   onActiveChange?: (active: boolean) => void;
 }
 
-export default function ActiveHike({ onFinish }: ActiveHikeProps) {
+export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
   const [elapsed, setElapsed] = useState(0);
   const [isRunning, setIsRunning] = useState(() => loadActiveHike() !== null);
+
+  // Notify parent of active state
+  useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
   const { position, error: gpsError } = useGps(isRunning);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
   const bestSplits = useRef<Map<number, number>>(new Map());
