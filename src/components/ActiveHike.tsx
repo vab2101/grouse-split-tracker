@@ -4,6 +4,9 @@ import {
   HikeAttempt,
   Split,
   MAX_MARKERS,
+  TRAIL_DISTANCE_KM,
+  TRAIL_ELEVATION_GAIN,
+  TRAIL_BASE_ELEVATION,
   formatDuration,
   formatSplitDiff,
   loadAttempts,
@@ -15,7 +18,7 @@ import {
   clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
@@ -180,7 +183,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
           <Mountain className="w-16 h-16 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">BCMC Trail</h1>
           <p className="text-muted-foreground text-center text-sm">
-            2.5 km · 853m elevation
+            {TRAIL_DISTANCE_KM} km · {TRAIL_ELEVATION_GAIN}m elevation gain
           </p>
           <p className="text-muted-foreground text-center text-xs">
             Start at Grouse Grind timer card trailhead scan
@@ -213,17 +216,47 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     <div className="flex flex-col min-h-screen pb-8">
       {/* Timer */}
       <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-4">
-        <div className="text-center">
-          <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
-          <p className="text-5xl font-mono-display font-bold text-timer tabular-nums">
-            {formatDuration(elapsed)}
-          </p>
-          {position?.altitude != null && (
-            <div className="flex items-center justify-center gap-1 mt-2 text-muted-foreground text-sm">
-              <TrendingUp className="w-3.5 h-3.5" />
-              <span>{Math.round(position.altitude)}m elevation</span>
-            </div>
-          )}
+        <div className="flex items-start justify-between">
+          <div className="flex-1 text-center">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
+            <p className="text-5xl font-mono-display font-bold text-timer tabular-nums">
+              {formatDuration(elapsed)}
+            </p>
+            {position?.altitude != null && (() => {
+              const ec = Math.min(TRAIL_ELEVATION_GAIN, Math.max(0, Math.round(position.altitude! - TRAIL_BASE_ELEVATION)));
+              const ep = Math.min(100, Math.round((ec / TRAIL_ELEVATION_GAIN) * 100));
+              const dc = Math.min(TRAIL_DISTANCE_KM, parseFloat((TRAIL_DISTANCE_KM * (ec / TRAIL_ELEVATION_GAIN)).toFixed(1)));
+              const dp = Math.min(100, Math.round((dc / TRAIL_DISTANCE_KM) * 100));
+              return (
+                <div className="mt-2 space-y-0.5">
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
+                    <TrendingUp className="w-3.5 h-3.5" />
+                    <span>{ec} m / {TRAIL_ELEVATION_GAIN} m ({ep}%)</span>
+                  </div>
+                  <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>{dc.toFixed(1)} km / {TRAIL_DISTANCE_KM} km ({dp}%)</span>
+                  </div>
+                </div>
+              );
+            })()}
+          </div>
+          {/* GPS accuracy indicator */}
+          <div className="flex items-center gap-1 pt-1">
+            {position ? (
+              <>
+                <Satellite className={`w-4 h-4 ${position.accuracy <= 10 ? "text-success" : position.accuracy <= 25 ? "text-warning" : "text-destructive"}`} />
+                <span className={`text-xs ${position.accuracy <= 10 ? "text-success" : position.accuracy <= 25 ? "text-warning" : "text-destructive"}`}>
+                  {Math.round(position.accuracy)}m
+                </span>
+              </>
+            ) : (
+              <>
+                <Satellite className="w-4 h-4 text-muted-foreground" />
+                <span className="text-xs text-muted-foreground">No GPS</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
 
