@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
   onFinish: () => void;
+  onActiveChange?: (active: boolean) => void;
 }
 
 export default function ActiveHike({ onFinish }: ActiveHikeProps) {
