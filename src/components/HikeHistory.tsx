@@ -4,8 +4,9 @@ import {
   loadAttempts,
   saveAttempts,
   formatDuration,
+  exportHikesAsCsv,
 } from "@/lib/hike-store";
-import { Trophy, Calendar, Clock, ChevronRight, Trash2, BarChart3 } from "lucide-react";
+import { Trophy, Calendar, Clock, Trash2, BarChart3, Download } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -88,9 +89,18 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         </button>
       )}
 
-      <p className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-        All Attempts ({completed.length})
-      </p>
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs uppercase tracking-widest text-muted-foreground">
+          All Attempts ({completed.length})
+        </p>
+        <button
+          onClick={() => exportHikesAsCsv(completed)}
+          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+        >
+          <Download className="w-3.5 h-3.5" />
+          Export CSV
+        </button>
+      </div>
 
       <div className="space-y-2">
         {completed.map((a) => {

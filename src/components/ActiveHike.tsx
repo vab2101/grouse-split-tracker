@@ -93,6 +93,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       latitude: position.latitude,
       longitude: position.longitude,
       altitude: position.altitude,
+      accuracy: position.accuracy,
     };
   }, [position]);
 
