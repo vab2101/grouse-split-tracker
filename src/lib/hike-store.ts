@@ -10,6 +10,7 @@ export interface GpsCoord {
   latitude: number;
   longitude: number;
   altitude: number | null;
+  accuracy?: number;
 }
 
 export interface Split {
@@ -147,4 +148,61 @@ export function formatSplitDiff(current: number, best?: number): { text: string;
   const diff = current - best;
   const sign = diff >= 0 ? "+" : "-";
   return { text: `${sign}${formatDuration(Math.abs(diff))}`, positive: diff <= 0 };
+}
+
+export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
+  const headers = [
+    "Hike ID",
+    "Hike Start Date-Time",
+    "Trail Marker Number",
+    "Trail Number Forgotten",
+    "Trail Marker Timestamp",
+    "Trail Marker GPS Position",
+    "Trail Marker GPS Accuracy (m)",
+  ];
+
+  const rows: string[][] = [];
+  for (const attempt of attempts) {
+    if (!attempt.completed) continue;
+    const startDateTime = new Date(attempt.startTime).toISOString();
+    for (const split of attempt.splits) {
+      const markerTimestamp = new Date(split.timestamp).toISOString();
+      const forgotten = split.skipped ? "true" : "false";
+      let gpsPosition = "";
+      let gpsAccuracy = "";
+      if (split.coords) {
+        const { latitude, longitude, altitude } = split.coords;
+        const altStr = altitude != null ? `,${altitude.toFixed(1)}` : "";
+        gpsPosition = `${latitude.toFixed(7)},${longitude.toFixed(7)}${altStr}`;
+        if (split.coords.accuracy != null) {
+          gpsAccuracy = split.coords.accuracy.toFixed(1);
+        }
+      }
+      rows.push([
+        attempt.id,
+        startDateTime,
+        String(split.marker),
+        forgotten,
+        markerTimestamp,
+        gpsPosition,
+        gpsAccuracy,
+      ]);
+    }
+  }
+
+  const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+  const csvContent = [
+    headers.map(escape).join(","),
+    ...rows.map((row) => row.map(escape).join(",")),
+  ].join("\n");
+
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `bcmc-hikes-${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
 }
