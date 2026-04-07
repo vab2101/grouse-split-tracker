@@ -342,7 +342,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       </div>
 
       {/* Finish button */}
-      <div className="px-6 pt-4">
+      <div className="px-6 pt-4 pb-24">
         <Button
           onClick={handleFinish}
           variant="destructive"
@@ -350,7 +350,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
           className="w-full gap-2"
         >
           <Square className="w-5 h-5" />
-          Finish at Lodge
+          Finish
         </Button>
       </div>
     </div>
