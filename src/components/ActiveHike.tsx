@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGps } from "@/hooks/use-gps";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import {
   HikeAttempt,
   Split,
@@ -32,6 +33,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
   const { position, error: gpsError } = useGps(isRunning);
+  useWakeLock(isRunning);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
   // beforeunload guard
