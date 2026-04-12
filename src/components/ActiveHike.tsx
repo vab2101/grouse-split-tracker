@@ -10,6 +10,7 @@ import {
   TRAIL_BASE_ELEVATION,
   formatDuration,
   saveAttempts,
+  loadAttempts,
   createAttempt,
   recordMarkerGps,
   saveActiveHike,
@@ -17,7 +18,7 @@ import {
   clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 interface ActiveHikeProps {
@@ -25,10 +26,18 @@ interface ActiveHikeProps {
   onActiveChange?: (active: boolean) => void;
 }
 
+const LOCK_HOLD_MS = 3000;
+const LOCK_RING_CIRC = 2 * Math.PI * 22; // circumference for r=22 SVG circle
+
 export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
   const [elapsed, setElapsed] = useState(0);
   const [isRunning, setIsRunning] = useState(() => loadActiveHike() !== null);
+  const [isLocked, setIsLocked] = useState(false);
+  const [lockProgress, setLockProgress] = useState(0);
+
+  const lockHoldRef = useRef<ReturnType<typeof setInterval>>();
+  const lockStartRef = useRef<number | null>(null);
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
@@ -69,6 +78,11 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       });
     }
   }, [position, isRunning]);
+
+  // Cleanup lock hold timer on unmount
+  useEffect(() => {
+    return () => clearInterval(lockHoldRef.current);
+  }, []);
 
   const currentCoord = useCallback((): GpsCoord | undefined => {
     if (!position) return undefined;
@@ -156,6 +170,28 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     onFinish();
   }, [attempt, onFinish]);
 
+  // Lock hold: start filling the progress ring; toggle lock after 3s
+  const startLockHold = useCallback(() => {
+    lockStartRef.current = Date.now();
+    lockHoldRef.current = setInterval(() => {
+      const held = Date.now() - (lockStartRef.current ?? Date.now());
+      const progress = Math.min(100, (held / LOCK_HOLD_MS) * 100);
+      setLockProgress(progress);
+      if (progress >= 100) {
+        clearInterval(lockHoldRef.current);
+        lockStartRef.current = null;
+        setLockProgress(0);
+        setIsLocked((prev) => !prev);
+      }
+    }, 50);
+  }, []);
+
+  const cancelLockHold = useCallback(() => {
+    clearInterval(lockHoldRef.current);
+    lockStartRef.current = null;
+    setLockProgress(0);
+  }, []);
+
   const nextMarker = attempt ? attempt.splits.length + 1 : 1;
 
   // Pre-start view
@@ -196,9 +232,9 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Timer */}
-      <div className="flex-none bg-background border-b border-border px-6 py-4">
+    <div className="flex flex-col h-full relative">
+      {/* Timer — sits above the lock overlay so the time stays visible */}
+      <div className="flex-none bg-background border-b border-border px-6 py-4 relative z-20">
         <div className="flex items-start justify-between">
           <div className="flex-1 text-center">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
@@ -272,17 +308,60 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
         )}
       </div>
 
-      {/* Finish button */}
-      <div className="flex-none px-6 pt-4 pb-4">
+      {/* Lock overlay — covers marker area; timer header and bottom row sit above it via z-20 */}
+      {isLocked && (
+        <div className="absolute inset-0 z-10 bg-background/80 flex flex-col items-center justify-center gap-3 pointer-events-auto select-none">
+          <Lock className="w-16 h-16 text-muted-foreground" />
+          <p className="text-muted-foreground font-semibold text-lg">Screen Locked</p>
+          <p className="text-muted-foreground text-xs">Hold the lock button for 3 seconds to unlock</p>
+        </div>
+      )}
+
+      {/* Finish + Lock/Unlock row — sits above the overlay */}
+      <div className="flex-none px-6 pt-4 pb-4 relative z-20 flex items-center gap-3">
         <Button
-          onClick={handleFinish}
+          onClick={isLocked ? undefined : handleFinish}
+          disabled={isLocked}
           variant="destructive"
           size="lg"
-          className="w-full gap-2"
+          className="flex-1 gap-2"
         >
           <Square className="w-5 h-5" />
           Finish
         </Button>
+
+        {/* Lock / Unlock button with 3s hold progress ring */}
+        <button
+          onPointerDown={startLockHold}
+          onPointerUp={cancelLockHold}
+          onPointerLeave={cancelLockHold}
+          onPointerCancel={cancelLockHold}
+          className="relative w-12 h-12 rounded-full bg-muted flex items-center justify-center touch-manipulation select-none flex-shrink-0"
+          aria-label={isLocked ? "Hold to unlock" : "Hold to lock"}
+        >
+          {/* Circular progress ring */}
+          <svg
+            className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none"
+            viewBox="0 0 48 48"
+          >
+            <circle
+              cx="24"
+              cy="24"
+              r="22"
+              fill="none"
+              strokeWidth="3"
+              strokeLinecap="round"
+              strokeDasharray={LOCK_RING_CIRC}
+              strokeDashoffset={LOCK_RING_CIRC * (1 - lockProgress / 100)}
+              className={isLocked ? "stroke-emerald-500" : "stroke-primary"}
+            />
+          </svg>
+          {isLocked ? (
+            <Unlock className="w-5 h-5 text-muted-foreground" />
+          ) : (
+            <Lock className="w-5 h-5 text-muted-foreground" />
+          )}
+        </button>
       </div>
     </div>
   );
