@@ -32,29 +32,31 @@ export default function Index() {
         )}
       </div>
 
-      {/* Bottom nav */}
-      <nav className="flex-none bg-card border-t border-border">
-        <div className="flex">
-          <button
-            onClick={() => guardedSetTab("track")}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
-              tab === "track" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <Play className="w-5 h-5" />
-            Track
-          </button>
-          <button
-            onClick={() => guardedSetTab("history")}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
-              tab === "history" ? "text-primary" : "text-muted-foreground"
-            }`}
-          >
-            <History className="w-5 h-5" />
-            History
-          </button>
-        </div>
-      </nav>
+      {/* Bottom nav — hidden during active hike */}
+      {!hikeActive && (
+        <nav className="flex-none bg-card border-t border-border">
+          <div className="flex">
+            <button
+              onClick={() => guardedSetTab("track")}
+              className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
+                tab === "track" ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <Play className="w-5 h-5" />
+              Track
+            </button>
+            <button
+              onClick={() => guardedSetTab("history")}
+              className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
+                tab === "history" ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <History className="w-5 h-5" />
+              History
+            </button>
+          </div>
+        </nav>
+      )}
     </div>
   );
 }
