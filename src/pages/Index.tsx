@@ -22,9 +22,9 @@ export default function Index() {
   }, [hikeActive, refresh]);
 
   return (
-    <div className="min-h-screen flex flex-col max-w-md mx-auto">
+    <div className="h-screen flex flex-col max-w-md mx-auto">
       {/* Content */}
-      <div className="flex-1">
+      <div className="flex-1 min-h-0">
         {tab === "track" ? (
           <ActiveHike onFinish={() => { setHikeActive(false); refresh(); setTab("history"); }} onActiveChange={setHikeActive} />
         ) : (
@@ -33,11 +33,11 @@ export default function Index() {
       </div>
 
       {/* Bottom nav */}
-      <nav className="sticky bottom-0 bg-card/95 backdrop-blur border-t border-border">
+      <nav className="flex-none bg-card border-t border-border">
         <div className="flex">
           <button
             onClick={() => guardedSetTab("track")}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${
+            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
               tab === "track" ? "text-primary" : "text-muted-foreground"
             }`}
           >
@@ -46,7 +46,7 @@ export default function Index() {
           </button>
           <button
             onClick={() => guardedSetTab("history")}
-            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors ${
+            className={`flex-1 flex flex-col items-center gap-1 py-3 text-xs transition-colors touch-manipulation select-none ${
               tab === "history" ? "text-primary" : "text-muted-foreground"
             }`}
           >

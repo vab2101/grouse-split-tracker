@@ -214,9 +214,9 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }
 
   return (
-    <div className="flex flex-col min-h-screen pb-8">
+    <div className="flex flex-col h-full">
       {/* Timer */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-4">
+      <div className="flex-none bg-background border-b border-border px-6 py-4">
         <div className="flex items-start justify-between">
           <div className="flex-1 text-center">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
@@ -262,12 +262,12 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       </div>
 
       {/* Marker buttons */}
-      <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-4">
+      <div className="flex-1 min-h-0 overflow-y-auto flex flex-col items-center px-6 pt-6 gap-4 pb-4">
         {nextMarker <= MAX_MARKERS ? (
           <>
             <button
               onClick={handleMarker}
-              className="w-36 h-36 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+              className="w-36 h-36 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform touch-manipulation select-none"
             >
               <MapPin className="w-8 h-8 text-primary" />
               <span className="text-3xl font-bold text-primary">{nextMarker}</span>
@@ -276,7 +276,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
             <button
               onClick={handleForgot}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform touch-manipulation select-none"
             >
               <SkipForward className="w-4 h-4" />
               Forgot marker {nextMarker}
@@ -343,7 +343,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       </div>
 
       {/* Finish button */}
-      <div className="px-6 pt-4 pb-24">
+      <div className="flex-none px-6 pt-4 pb-4">
         <Button
           onClick={handleFinish}
           variant="destructive"
