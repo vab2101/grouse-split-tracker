@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useGps } from "@/hooks/use-gps";
+import { useWakeLock } from "@/hooks/use-wake-lock";
 import {
   HikeAttempt,
   Split,
@@ -8,8 +9,6 @@ import {
   TRAIL_ELEVATION_GAIN,
   TRAIL_BASE_ELEVATION,
   formatDuration,
-  formatSplitDiff,
-  loadAttempts,
   saveAttempts,
   createAttempt,
   recordMarkerGps,
@@ -34,8 +33,8 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
   const { position, error: gpsError } = useGps(isRunning);
+  useWakeLock(isRunning);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
-  const bestSplits = useRef<Map<number, number>>(new Map());
 
   // beforeunload guard
   useEffect(() => {
@@ -44,22 +43,6 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
   }, [isRunning]);
-
-  // Load best splits from history
-  useEffect(() => {
-    const attempts = loadAttempts();
-    const map = new Map<number, number>();
-    for (const a of attempts) {
-      for (const s of a.splits) {
-        if (s.skipped) continue;
-        const current = map.get(s.marker);
-        if (current === undefined || s.elapsed < current) {
-          map.set(s.marker, s.elapsed);
-        }
-      }
-    }
-    bestSplits.current = map;
-  }, []);
 
   // Timer
   useEffect(() => {
@@ -174,7 +157,6 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }, [attempt, onFinish]);
 
   const nextMarker = attempt ? attempt.splits.length + 1 : 1;
-  const lastSplit = attempt?.splits[attempt.splits.length - 1];
 
   // Pre-start view
   if (!isRunning && !attempt) {
@@ -214,9 +196,9 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }
 
   return (
-    <div className="flex flex-col min-h-screen pb-8">
+    <div className="flex flex-col h-full">
       {/* Timer */}
-      <div className="sticky top-0 z-10 bg-background/95 backdrop-blur border-b border-border px-6 py-4">
+      <div className="flex-none bg-background border-b border-border px-6 py-4">
         <div className="flex items-start justify-between">
           <div className="flex-1 text-center">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
@@ -262,21 +244,21 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       </div>
 
       {/* Marker buttons */}
-      <div className="flex-1 flex flex-col items-center px-6 pt-6 gap-4">
+      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
         {nextMarker <= MAX_MARKERS ? (
           <>
             <button
               onClick={handleMarker}
-              className="w-36 h-36 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform"
+              className="w-44 h-44 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform touch-manipulation select-none"
             >
-              <MapPin className="w-8 h-8 text-primary" />
-              <span className="text-3xl font-bold text-primary">{nextMarker}</span>
+              <MapPin className="w-10 h-10 text-primary" />
+              <span className="text-4xl font-bold text-primary">{nextMarker}</span>
               <span className="text-xs text-muted-foreground">Tap at marker</span>
             </button>
 
             <button
               onClick={handleForgot}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform"
+              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform touch-manipulation select-none"
             >
               <SkipForward className="w-4 h-4" />
               Forgot marker {nextMarker}
@@ -288,62 +270,10 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
             <p className="font-semibold">All markers logged!</p>
           </div>
         )}
-
-        {/* Last split info */}
-        {lastSplit && !lastSplit.skipped && (
-          <div className="bg-card border border-border rounded-xl p-4 w-full max-w-sm">
-            <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Marker {lastSplit.marker}</span>
-              <span className="font-mono-display font-semibold">{formatDuration(lastSplit.elapsed)}</span>
-            </div>
-            {(() => {
-              const diff = formatSplitDiff(lastSplit.elapsed, bestSplits.current.get(lastSplit.marker));
-              if (!diff) return null;
-              return (
-                <p className={`text-xs mt-1 text-right ${diff.positive ? "text-success" : "text-destructive"}`}>
-                  {diff.text} vs best
-                </p>
-              );
-            })()}
-          </div>
-        )}
-        {lastSplit?.skipped && (
-          <div className="bg-muted/30 border border-border rounded-xl p-3 w-full max-w-sm text-center text-xs text-muted-foreground">
-            Marker {lastSplit.marker} skipped (forgot)
-          </div>
-        )}
-
-        {/* Splits list */}
-        {attempt && attempt.splits.length > 0 && (
-          <div className="w-full max-w-sm">
-            <h3 className="text-xs uppercase tracking-widest text-muted-foreground mb-3">Splits</h3>
-            <div className="space-y-1.5">
-              {[...attempt.splits].reverse().map((s) => {
-                const prevSplit = attempt.splits[attempt.splits.indexOf(s) - 1];
-                const segmentTime = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
-                return (
-                  <div key={s.marker} className={`flex items-center justify-between rounded-lg px-3 py-2 text-sm ${s.skipped ? "bg-muted/20 opacity-50" : "bg-muted/50"}`}>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-6 h-6 rounded-full text-xs font-bold flex items-center justify-center ${s.skipped ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"}`}>
-                        {s.marker}
-                      </span>
-                      {s.skipped ? (
-                        <span className="text-muted-foreground italic text-xs">skipped</span>
-                      ) : (
-                        <span className="text-muted-foreground">+{formatDuration(segmentTime)}</span>
-                      )}
-                    </div>
-                    <span className="font-mono-display text-xs">{formatDuration(s.elapsed)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Finish button */}
-      <div className="px-6 pt-4 pb-24">
+      <div className="flex-none px-6 pt-4 pb-4">
         <Button
           onClick={handleFinish}
           variant="destructive"
