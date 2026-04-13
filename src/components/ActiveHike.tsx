@@ -20,6 +20,8 @@ import {
 } from "@/lib/hike-store";
 import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getProgressForMarker } from "@/lib/trail-markers";
+import TrailProgress from "@/components/TrailProgress";
 
 interface ActiveHikeProps {
   onFinish: () => void;
@@ -193,6 +195,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }, []);
 
   const nextMarker = attempt ? attempt.splits.length + 1 : 1;
+  const markerProgress = getProgressForMarker(attempt ? attempt.splits.length : 0);
 
   // Pre-start view
   if (!isRunning && !attempt) {
@@ -241,24 +244,20 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
             <p className="text-5xl font-mono-display font-bold text-timer tabular-nums">
               {formatDuration(elapsed)}
             </p>
-            {position?.altitude != null && (() => {
-              const ec = Math.min(TRAIL_ELEVATION_GAIN, Math.max(0, Math.round(position.altitude! - TRAIL_BASE_ELEVATION)));
-              const ep = Math.min(100, Math.round((ec / TRAIL_ELEVATION_GAIN) * 100));
-              const dc = Math.min(TRAIL_DISTANCE_KM, parseFloat((TRAIL_DISTANCE_KM * (ec / TRAIL_ELEVATION_GAIN)).toFixed(1)));
-              const dp = Math.min(100, Math.round((dc / TRAIL_DISTANCE_KM) * 100));
-              return (
-                <div className="mt-2 space-y-0.5">
+            <div className="mt-2 space-y-0.5">
                   <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
                     <TrendingUp className="w-3.5 h-3.5" />
-                    <span>{ec} m / {TRAIL_ELEVATION_GAIN} m ({ep}%)</span>
+                    <span>
+                      {Math.round(markerProgress.elevation - TRAIL_BASE_ELEVATION)} m / {TRAIL_ELEVATION_GAIN} m ({markerProgress.elevationPct.toFixed(0)}%)
+                    </span>
                   </div>
                   <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
                     <MapPin className="w-3.5 h-3.5" />
-                    <span>{dc.toFixed(1)} km / {TRAIL_DISTANCE_KM} km ({dp}%)</span>
+                    <span>
+                      {(markerProgress.distanceM / 1000).toFixed(2)} km / {TRAIL_DISTANCE_KM} km ({markerProgress.distancePct.toFixed(0)}%)
+                    </span>
                   </div>
                 </div>
-              );
-            })()}
           </div>
           {/* GPS accuracy indicator */}
           <div className="flex items-center gap-1 pt-1">
@@ -277,6 +276,11 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
             )}
           </div>
         </div>
+      </div>
+
+      {/* Trail progress sparklines */}
+      <div className="flex-none border-b border-border/40">
+        <TrailProgress distancePct={markerProgress.distancePct} />
       </div>
 
       {/* Marker buttons */}
