@@ -27,7 +27,7 @@ interface ActiveHikeProps {
 }
 
 const LOCK_HOLD_MS = 3000;
-const LOCK_RING_CIRC = 2 * Math.PI * 22; // circumference for r=22 SVG circle
+const LOCK_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44 in the centered progress indicator
 
 export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
@@ -317,6 +317,42 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
         </div>
       )}
 
+      {/* Centered hold-progress indicator — shown while the user is pressing the lock button */}
+      {lockProgress > 0 && (
+        <div className="absolute inset-0 z-30 flex items-center justify-center pointer-events-none select-none">
+          <div className="bg-background/95 rounded-3xl px-8 py-6 flex flex-col items-center gap-4 shadow-xl">
+            <div className="relative w-32 h-32">
+              <svg className="absolute inset-0 w-full h-full -rotate-90" viewBox="0 0 100 100">
+                {/* Track */}
+                <circle cx="50" cy="50" r="44" fill="none" strokeWidth="5" className="stroke-muted" />
+                {/* Progress arc */}
+                <circle
+                  cx="50"
+                  cy="50"
+                  r="44"
+                  fill="none"
+                  strokeWidth="5"
+                  strokeLinecap="round"
+                  strokeDasharray={LOCK_RING_CIRC}
+                  strokeDashoffset={LOCK_RING_CIRC * (1 - lockProgress / 100)}
+                  className={isLocked ? "stroke-emerald-500" : "stroke-primary"}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                {isLocked ? (
+                  <Unlock className="w-10 h-10 text-muted-foreground" />
+                ) : (
+                  <Lock className="w-10 h-10 text-muted-foreground" />
+                )}
+              </div>
+            </div>
+            <p className="text-sm font-medium text-muted-foreground">
+              {isLocked ? "Keep holding to unlock" : "Keep holding to lock"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Finish + Lock/Unlock row — sits above the overlay */}
       <div className="flex-none px-6 pt-4 pb-4 relative z-20 flex items-center gap-3">
         <Button
@@ -330,32 +366,15 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
           Finish
         </Button>
 
-        {/* Lock / Unlock button with 3s hold progress ring */}
+        {/* Lock / Unlock button — hold 3s to toggle; progress ring shows centered on screen */}
         <button
           onPointerDown={startLockHold}
           onPointerUp={cancelLockHold}
           onPointerLeave={cancelLockHold}
           onPointerCancel={cancelLockHold}
-          className="relative w-12 h-12 rounded-full bg-muted flex items-center justify-center touch-manipulation select-none flex-shrink-0"
+          className="w-12 h-12 rounded-full bg-muted flex items-center justify-center touch-manipulation select-none flex-shrink-0"
           aria-label={isLocked ? "Hold to unlock" : "Hold to lock"}
         >
-          {/* Circular progress ring */}
-          <svg
-            className="absolute inset-0 w-full h-full -rotate-90 pointer-events-none"
-            viewBox="0 0 48 48"
-          >
-            <circle
-              cx="24"
-              cy="24"
-              r="22"
-              fill="none"
-              strokeWidth="3"
-              strokeLinecap="round"
-              strokeDasharray={LOCK_RING_CIRC}
-              strokeDashoffset={LOCK_RING_CIRC * (1 - lockProgress / 100)}
-              className={isLocked ? "stroke-emerald-500" : "stroke-primary"}
-            />
-          </svg>
           {isLocked ? (
             <Unlock className="w-5 h-5 text-muted-foreground" />
           ) : (
