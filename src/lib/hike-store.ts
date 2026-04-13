@@ -1,9 +1,9 @@
 // BCMC Trail — markers up to ~50 (unconfirmed exact count)
-// Official stats from grousemountain.com/BCMC: 2.9 km, 750m elevation gain
+// Official stats from grousemountain.com/BCMC: 2.4 km, 796m elevation gain
 
 export const MAX_MARKERS = 50;
-export const TRAIL_DISTANCE_KM = 2.9;
-export const TRAIL_ELEVATION_GAIN = 750;
+export const TRAIL_DISTANCE_KM = 2.4;
+export const TRAIL_ELEVATION_GAIN = 796;
 export const TRAIL_BASE_ELEVATION = 290;
 
 export interface GpsCoord {
@@ -165,6 +165,16 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   for (const attempt of attempts) {
     if (!attempt.completed) continue;
     const startDateTime = new Date(attempt.startTime).toISOString();
+    // Start row (marker 0)
+    rows.push([
+      attempt.id,
+      startDateTime,
+      "0",
+      "false",
+      startDateTime,
+      "",
+      "",
+    ]);
     for (const split of attempt.splits) {
       const markerTimestamp = new Date(split.timestamp).toISOString();
       const forgotten = split.skipped ? "true" : "false";
@@ -186,6 +196,18 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
         markerTimestamp,
         gpsPosition,
         gpsAccuracy,
+      ]);
+    }
+    // Finish row (marker 51)
+    if (attempt.endTime) {
+      rows.push([
+        attempt.id,
+        startDateTime,
+        "51",
+        "false",
+        new Date(attempt.endTime).toISOString(),
+        "",
+        "",
       ]);
     }
   }

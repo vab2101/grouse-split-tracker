@@ -51,6 +51,19 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         markerStats.set(s.marker, { best: Math.min(ex.best, seg), totalMs: ex.totalMs + seg, count: ex.count + 1 });
       }
     }
+    // Finish segment: last marker to end of hike (marker 51)
+    if (a.splits.length > 0 && a.totalTime) {
+      const lastSplit = a.splits[a.splits.length - 1];
+      if (!lastSplit.skipped) {
+        const finishSeg = a.totalTime - lastSplit.elapsed;
+        const ex = markerStats.get(51);
+        if (!ex) {
+          markerStats.set(51, { best: finishSeg, totalMs: finishSeg, count: 1 });
+        } else {
+          markerStats.set(51, { best: Math.min(ex.best, finishSeg), totalMs: ex.totalMs + finishSeg, count: ex.count + 1 });
+        }
+      }
+    }
   }
 
   if (showComparison && comparing.length >= 2) {
@@ -196,6 +209,11 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                     <span className="text-right">Avg</span>
                   </div>
                   <div className="space-y-0.5">
+                    {/* Start row */}
+                    <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs">
+                      <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none bg-primary/20 text-primary">S</span>
+                      <span className="col-span-3 text-muted-foreground italic text-[10px]">Start</span>
+                    </div>
                     {a.splits.map((s, i) => {
                       const prevSplit = a.splits[i - 1];
                       const seg = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
@@ -225,6 +243,25 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                         </div>
                       );
                     })}
+                    {/* Finish row */}
+                    {a.splits.length > 0 && !a.splits[a.splits.length - 1].skipped && (() => {
+                      const lastSplit = a.splits[a.splits.length - 1];
+                      const finishSeg = a.totalTime! - lastSplit.elapsed;
+                      const stats = markerStats.get(51);
+                      const avg = stats ? Math.round(stats.totalMs / stats.count) : undefined;
+                      return (
+                        <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs">
+                          <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none bg-primary/20 text-primary">F</span>
+                          <span className="font-mono-display text-right">{formatDuration(finishSeg)}</span>
+                          <span className="font-mono-display text-right text-muted-foreground">
+                            {stats ? formatDuration(stats.best) : "—"}
+                          </span>
+                          <span className="font-mono-display text-right text-muted-foreground">
+                            {avg !== undefined ? formatDuration(avg) : "—"}
+                          </span>
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
