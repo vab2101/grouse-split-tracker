@@ -202,7 +202,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
           <Mountain className="w-16 h-16 text-primary" />
           <h1 className="text-3xl font-bold tracking-tight">BCMC Trail</h1>
           <p className="text-muted-foreground text-center text-sm">
-            {TRAIL_DISTANCE_KM} km, {TRAIL_ELEVATION_GAIN}m elevation gain
+            {TRAIL_DISTANCE_KM} km · {TRAIL_ELEVATION_GAIN}m elevation gain
           </p>
           <p className="text-muted-foreground text-center text-xs">
             Start at Grouse Grind timer card trailhead scan
