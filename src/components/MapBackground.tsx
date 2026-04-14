@@ -12,11 +12,40 @@ const TRAIL_BOUNDS: [[number, number], [number, number]] = [
   [Math.max(...LNGS), Math.max(...LATS)],
 ];
 
-// Issue #22: position the trail so its right-most and bottom-most points sit
-// close to the right/bottom edges of the map area, which pushes the route into
-// the bottom-right corner — well clear of the centered marker button (176 px
-// wide, vertically centered) and the "Forgot marker" chip below it.
-const FIT_PADDING = { top: 280, right: 20, bottom: 30, left: 220 };
+// The marker button is 176 px wide/tall (Tailwind w-44/h-44) and vertically
+// centered in the map region, with a ~40 px "Forgot marker" chip underneath.
+// These constants describe the footprint we need to keep clear of the trail.
+const BUTTON_HALF = 88; // 176 / 2
+const BUTTON_BOTTOM_EXTRA = 52; // ~forgot-chip height + gap
+const EDGE_BUFFER = 20; // small breathing room from the map edges
+
+/**
+ * Compute fitBounds padding that:
+ *  - pushes the trail's right-most and bottom-most extents close to the right
+ *    and bottom edges of the map area (issue #22 spec)
+ *  - keeps the trail clear of the centered marker button + chip
+ *
+ * Scales with the actual map container size so it works across phone, tablet,
+ * and desktop viewports, with clamps so the padding never exceeds the
+ * available space (maplibre rejects fitBounds when padding > viewport).
+ */
+function computeFitPadding(w: number, h: number) {
+  // Minimum usable bbox size — if the button+edge buffers would crush the
+  // trail into a sliver, we back off instead so the route stays legible.
+  const MIN_BBOX = 120;
+
+  // Ideal: push the trail to the right of the button and below it + its chip.
+  let left = w / 2 + BUTTON_HALF + EDGE_BUFFER;
+  let top = h / 2 + BUTTON_HALF + BUTTON_BOTTOM_EXTRA + EDGE_BUFFER;
+  const right = EDGE_BUFFER;
+  const bottom = EDGE_BUFFER;
+
+  // Back off the heavier side if the remaining bbox would be too small.
+  if (w - left - right < MIN_BBOX) left = Math.max(w - right - MIN_BBOX, 0);
+  if (h - top - bottom < MIN_BBOX) top = Math.max(h - bottom - MIN_BBOX, 0);
+
+  return { top, right, bottom, left };
+}
 
 // Track whether the DEM source has been wired into maplibre globally — we
 // only want to call `setupMaplibre` once per page load.
@@ -229,8 +258,9 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
         .setLngLat([TRAIL_ROUTE[0].lng, TRAIL_ROUTE[0].lat])
         .addTo(map);
 
+      const c = map.getContainer();
       map.fitBounds(TRAIL_BOUNDS, {
-        padding: FIT_PADDING,
+        padding: computeFitPadding(c.clientWidth, c.clientHeight),
         animate: false,
         duration: 0,
       });
@@ -238,8 +268,9 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
 
     const onResize = () => {
       map.resize();
+      const c = map.getContainer();
       map.fitBounds(TRAIL_BOUNDS, {
-        padding: FIT_PADDING,
+        padding: computeFitPadding(c.clientWidth, c.clientHeight),
         animate: false,
         duration: 0,
       });
