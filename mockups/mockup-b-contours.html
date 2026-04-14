@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#161b17">
+  <title>Mockup B — Contours on Dark · BCMC Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.css">
+  <link rel="stylesheet" href="./_shared.css">
+  <style>
+    /* Mockup B runs on a pure dark canvas — fade the vignette more gently
+       so the contour lines read uniformly behind the button. */
+    .map-vignette {
+      background: radial-gradient(
+        circle at 50% 50%,
+        hsla(150, 10%, 8%, 0.55) 0,
+        hsla(150, 10%, 8%, 0.30) 18%,
+        hsla(150, 10%, 8%, 0.0) 45%
+      );
+    }
+  </style>
+</head>
+<body>
+  <div class="phone"></div>
+
+  <script src="https://unpkg.com/maplibre-gl@4.7.1/dist/maplibre-gl.js"></script>
+  <script src="https://unpkg.com/maplibre-contour@0.0.6/dist/index.min.js"></script>
+  <script src="./_shared.js"></script>
+  <script>
+    const mapEl = renderChrome({
+      nextMarker: 3,
+      progress: 0.30,
+      attribution: 'DEM: <b>AWS Terrain Tiles</b> · contours via <b>maplibre-contour</b>'
+    });
+
+    // DEM source: AWS Open Data Terrarium-encoded tiles (free, no key).
+    const demSource = new mlcontour.DemSource({
+      url: 'https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png',
+      encoding: 'terrarium',
+      maxzoom: 13,
+      worker: true
+    });
+    demSource.setupMaplibre(maplibregl);
+
+    const contourTileUrl = demSource.contourProtocolUrl({
+      multiplier: 1,
+      overzoom: 1,
+      thresholds: {
+        // zoom: [minor interval, major interval] in meters
+        11: [50, 250],
+        12: [25, 100],
+        13: [20, 100],
+        14: [10, 50],
+        15: [10, 50]
+      },
+      elevationKey: 'ele',
+      levelKey: 'level',
+      contourLayer: 'contours'
+    });
+
+    const style = {
+      version: 8,
+      sources: {
+        contours: {
+          type: 'vector',
+          tiles: [contourTileUrl],
+          maxzoom: 15
+        }
+      },
+      layers: [
+        { id: 'bg', type: 'background', paint: { 'background-color': '#141816' } },
+        {
+          id: 'contour-minor',
+          type: 'line',
+          source: 'contours',
+          'source-layer': 'contours',
+          filter: ['!=', ['get', 'level'], 1],
+          paint: {
+            'line-color': 'hsla(145, 35%, 55%, 0.22)',
+            'line-width': 0.7
+          }
+        },
+        {
+          id: 'contour-major',
+          type: 'line',
+          source: 'contours',
+          'source-layer': 'contours',
+          filter: ['==', ['get', 'level'], 1],
+          paint: {
+            'line-color': 'hsla(145, 50%, 65%, 0.50)',
+            'line-width': 1.4
+          }
+        }
+      ]
+    };
+
+    const map = new maplibregl.Map({
+      container: mapEl,
+      style,
+      interactive: false,
+      attributionControl: false,
+      dragRotate: false,
+      pitchWithRotate: false,
+      touchZoomRotate: false
+    });
+
+    map.on('load', () => {
+      map.addSource('trail', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: TRAIL.map(p => [p[1], p[0]])
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'trail-glow',
+        type: 'line',
+        source: 'trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': 'hsl(145, 70%, 55%)',
+          'line-width': 12,
+          'line-opacity': 0.22,
+          'line-blur': 6
+        }
+      });
+      map.addLayer({
+        id: 'trail-core',
+        type: 'line',
+        source: 'trail',
+        layout: { 'line-cap': 'round', 'line-join': 'round' },
+        paint: {
+          'line-color': 'hsl(145, 85%, 70%)',
+          'line-width': 3.2,
+          'line-opacity': 0.98
+        }
+      });
+
+      const start = TRAIL[0];
+      const curIdx = Math.floor(0.30 * (TRAIL.length - 1));
+      const cur = TRAIL[curIdx];
+      const startEl = document.createElement('div');
+      startEl.className = 'trail-start';
+      new maplibregl.Marker({ element: startEl, anchor: 'center' })
+        .setLngLat([start[1], start[0]]).addTo(map);
+      const curEl = document.createElement('div');
+      curEl.className = 'trail-pulse';
+      new maplibregl.Marker({ element: curEl, anchor: 'center' })
+        .setLngLat([cur[1], cur[0]]).addTo(map);
+
+      // Heavy bottom padding so the zig-zag route sits in the upper portion,
+      // leaving the centered marker button over negative space.
+      map.fitBounds(TRAIL_BOUNDS, {
+        padding: { top: 30, right: 40, bottom: 260, left: 40 },
+        animate: false,
+        duration: 0
+      });
+    });
+
+    window.addEventListener('resize', () => {
+      map.resize();
+      map.fitBounds(TRAIL_BOUNDS, {
+        padding: { top: 30, right: 40, bottom: 260, left: 40 },
+        animate: false,
+        duration: 0
+      });
+    });
+  </script>
+</body>
+</html>
