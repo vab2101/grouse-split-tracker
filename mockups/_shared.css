@@ -1,0 +1,321 @@
+/* Colors derived from src/index.css */
+:root {
+  --background: hsl(150 10% 8%);
+  --foreground: hsl(45 20% 92%);
+  --card: hsl(150 8% 12%);
+  --primary: hsl(145 60% 45%);
+  --primary-fg: hsl(150 10% 8%);
+  --muted: hsl(150 6% 18%);
+  --muted-foreground: hsl(150 10% 55%);
+  --border: hsl(150 6% 20%);
+  --destructive: hsl(0 72% 51%);
+  --destructive-fg: hsl(45 20% 92%);
+  --timer: hsl(45 20% 95%);
+  --warning: hsl(35 80% 55%);
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #0b0d0c;
+  color: var(--foreground);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100vh;
+}
+
+/* On desktop — show a centered phone frame. On phones — full viewport. */
+body {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.phone {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+  background: var(--background);
+  color: var(--foreground);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+@media (min-width: 480px) {
+  body { padding: 20px; }
+  .phone {
+    width: 393px;
+    height: min(852px, calc(100vh - 40px));
+    border-radius: 40px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 2px #1b1d1c inset;
+    overflow: hidden;
+  }
+}
+
+header {
+  flex: none;
+  padding: 14px 20px 12px;
+  border-bottom: 1px solid var(--border);
+  position: relative;
+  z-index: 20;
+  background: var(--background);
+}
+
+.header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.header-center { flex: 1; text-align: center; }
+
+.elapsed-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--muted-foreground);
+  margin-bottom: 2px;
+}
+
+.elapsed-time {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-size: 44px;
+  font-weight: 700;
+  color: var(--timer);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.stats {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 8px;
+  align-items: center;
+  color: var(--muted-foreground);
+  font-size: 13px;
+}
+
+.stat {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.gps {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding-top: 4px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--warning);
+}
+
+/* Elevation sparkline strip — centered, replaces the old elev+route pair */
+.elev-band {
+  flex: none;
+  padding: 6px 0 8px;
+  border-bottom: 1px solid rgba(255,255,255,0.04);
+  position: relative;
+  z-index: 20;
+  background: var(--background);
+  display: flex;
+  justify-content: center;
+}
+
+.elev-inner {
+  width: 60%;
+  max-width: 260px;
+  min-width: 180px;
+}
+
+.elev-label {
+  font-size: 10px;
+  color: var(--muted-foreground);
+  text-align: center;
+  margin-bottom: 2px;
+  letter-spacing: 0.4px;
+}
+
+#elev {
+  display: block;
+  width: 100%;
+  height: 56px;
+}
+
+/* Map area */
+.map-wrap {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: var(--background);
+}
+
+#map {
+  position: absolute;
+  inset: 0;
+}
+
+/* Soft radial vignette centered on the marker button so the map dims behind it */
+.map-vignette {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: radial-gradient(
+    circle at 50% 50%,
+    hsla(150, 10%, 8%, 0.78) 0,
+    hsla(150, 10%, 8%, 0.55) 12%,
+    hsla(150, 10%, 8%, 0.0) 38%
+  );
+}
+
+/* Center-stacked marker button + forgot chip (over map) */
+.center-stack {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  pointer-events: none;
+}
+
+.marker-btn {
+  pointer-events: auto;
+  width: 176px;
+  height: 176px;
+  border-radius: 50%;
+  background: hsla(145, 60%, 45%, 0.18);
+  border: 2px solid var(--primary);
+  color: var(--primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.35), 0 0 0 6px hsla(145, 60%, 45%, 0.06);
+  cursor: pointer;
+  transition: transform 120ms ease;
+}
+
+.marker-btn:active { transform: scale(0.96); }
+.marker-btn svg { stroke: var(--primary); }
+.marker-btn .num {
+  font-size: 44px;
+  font-weight: 700;
+  line-height: 1;
+  margin-top: 2px;
+}
+.marker-btn .hint {
+  font-size: 11px;
+  color: var(--muted-foreground);
+}
+
+.forgot-btn {
+  pointer-events: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 10px;
+  background: hsla(150, 6%, 18%, 0.7);
+  color: var(--muted-foreground);
+  font-size: 13px;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  border: 1px solid rgba(255,255,255,0.05);
+  cursor: pointer;
+}
+
+/* Tile attribution */
+.attribution {
+  position: absolute;
+  bottom: 3px;
+  right: 6px;
+  font-size: 9px;
+  color: rgba(255,255,255,0.55);
+  pointer-events: none;
+  z-index: 5;
+  text-shadow: 0 1px 2px rgba(0,0,0,0.9);
+  max-width: 80%;
+  text-align: right;
+  line-height: 1.2;
+}
+
+/* Footer */
+footer {
+  flex: none;
+  padding: 14px 20px 18px;
+  background: var(--background);
+  position: relative;
+  z-index: 20;
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  border-top: 1px solid rgba(255,255,255,0.04);
+}
+
+.finish {
+  flex: 1;
+  height: 48px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--destructive);
+  color: var(--destructive-fg);
+  font-weight: 600;
+  font-size: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  cursor: pointer;
+}
+
+.lock-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  border: 0;
+  background: var(--muted);
+  color: var(--muted-foreground);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  flex: none;
+}
+
+/* Hide MapLibre's own attribution control — we paint our own tiny text */
+.maplibregl-ctrl-attrib { display: none !important; }
+.maplibregl-ctrl-bottom-left,
+.maplibregl-ctrl-bottom-right,
+.maplibregl-ctrl-top-left,
+.maplibregl-ctrl-top-right { display: none !important; }
+
+/* Route styling — layered on top of map */
+.trail-pulse {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: hsl(145, 60%, 50%);
+  border: 2px solid hsl(45, 20%, 95%);
+  box-shadow: 0 0 0 6px hsla(145, 60%, 50%, 0.22),
+              0 2px 10px rgba(0,0,0,0.5);
+}
+
+.trail-start {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: hsla(45, 20%, 95%, 0.9);
+  border: 2px solid hsl(145, 60%, 40%);
+  box-shadow: 0 2px 6px rgba(0,0,0,0.6);
+}
