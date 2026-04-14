@@ -12,10 +12,11 @@ const TRAIL_BOUNDS: [[number, number], [number, number]] = [
   [Math.max(...LNGS), Math.max(...LATS)],
 ];
 
-// Heavy right + bottom padding keeps the trail's right-most and bottom-most
-// extents near the screen edges, so the route has minimal overlap with the
-// centered marker button and bottom controls.
-const FIT_PADDING = { top: 30, right: 20, bottom: 220, left: 120 };
+// Issue #22: position the trail so its right-most and bottom-most points sit
+// close to the right/bottom edges of the map area, which pushes the route into
+// the bottom-right corner — well clear of the centered marker button (176 px
+// wide, vertically centered) and the "Forgot marker" chip below it.
+const FIT_PADDING = { top: 280, right: 20, bottom: 30, left: 220 };
 
 // Track whether the DEM source has been wired into maplibre globally — we
 // only want to call `setupMaplibre` once per page load.
@@ -26,10 +27,31 @@ interface MapBackgroundProps {
   progress: number;
 }
 
+/** Build the LineString coordinates for the completed portion of the trail
+ *  from the start up to a given 0-1 progress fraction along the polyline. */
+function completedCoords(progress: number): [number, number][] {
+  const clamped = Math.max(0, Math.min(1, progress));
+  if (clamped <= 0) return [];
+  const idxF = clamped * (TRAIL_ROUTE.length - 1);
+  const idx = Math.floor(idxF);
+  const frac = idxF - idx;
+  const coords: [number, number][] = TRAIL_ROUTE.slice(0, idx + 1).map((p) => [
+    p.lng,
+    p.lat,
+  ]);
+  if (idx < TRAIL_ROUTE.length - 1 && frac > 0) {
+    const a = TRAIL_ROUTE[idx];
+    const b = TRAIL_ROUTE[idx + 1];
+    coords.push([a.lng + frac * (b.lng - a.lng), a.lat + frac * (b.lat - a.lat)]);
+  }
+  return coords;
+}
+
 export default function MapBackground({ progress }: MapBackgroundProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<maplibregl.Map | null>(null);
   const pulseMarkerRef = useRef<maplibregl.Marker | null>(null);
+  const mapLoadedRef = useRef(false);
 
   // Initialize the map once
   useEffect(() => {
@@ -147,9 +169,48 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
         paint: {
           "line-color": "hsl(145, 85%, 70%)",
           "line-width": 3.2,
-          "line-opacity": 0.98,
+          "line-opacity": 0.6,
         },
       });
+
+      // Completed portion — separate source + layers so we can highlight it
+      // in a warmer color as the hiker progresses through each marker.
+      map.addSource("trail-done", {
+        type: "geojson",
+        data: {
+          type: "Feature",
+          properties: {},
+          geometry: {
+            type: "LineString",
+            coordinates: completedCoords(progress),
+          },
+        },
+      });
+      map.addLayer({
+        id: "trail-done-glow",
+        type: "line",
+        source: "trail-done",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "hsl(35, 95%, 60%)",
+          "line-width": 14,
+          "line-opacity": 0.3,
+          "line-blur": 6,
+        },
+      });
+      map.addLayer({
+        id: "trail-done-core",
+        type: "line",
+        source: "trail-done",
+        layout: { "line-cap": "round", "line-join": "round" },
+        paint: {
+          "line-color": "hsl(38, 100%, 70%)",
+          "line-width": 3.8,
+          "line-opacity": 1,
+        },
+      });
+
+      mapLoadedRef.current = true;
 
       // Start-point marker
       const startEl = document.createElement("div");
@@ -189,14 +250,14 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
       window.removeEventListener("resize", onResize);
       pulseMarkerRef.current?.remove();
       pulseMarkerRef.current = null;
+      mapLoadedRef.current = false;
       map.remove();
       mapRef.current = null;
     };
   }, []);
 
-  // Move the pulsing marker along the trail as progress changes
+  // Move the pulsing marker and update the completed-trail overlay as progress changes
   useEffect(() => {
-    if (!pulseMarkerRef.current) return;
     const clamped = Math.max(0, Math.min(1, progress));
     const idxF = clamped * (TRAIL_ROUTE.length - 1);
     const idx = Math.floor(idxF);
@@ -205,7 +266,22 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
     const b = TRAIL_ROUTE[Math.min(idx + 1, TRAIL_ROUTE.length - 1)];
     const lat = a.lat + frac * (b.lat - a.lat);
     const lng = a.lng + frac * (b.lng - a.lng);
-    pulseMarkerRef.current.setLngLat([lng, lat]);
+
+    pulseMarkerRef.current?.setLngLat([lng, lat]);
+
+    if (mapRef.current && mapLoadedRef.current) {
+      const src = mapRef.current.getSource("trail-done") as
+        | maplibregl.GeoJSONSource
+        | undefined;
+      src?.setData({
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates: completedCoords(clamped),
+        },
+      });
+    }
   }, [progress]);
 
   return <div ref={containerRef} className="absolute inset-0" />;
