@@ -22,6 +22,7 @@ import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellit
 import { Button } from "@/components/ui/button";
 import { getProgressForMarker } from "@/lib/trail-markers";
 import TrailProgress from "@/components/TrailProgress";
+import MapBackground from "@/components/MapBackground";
 
 interface ActiveHikeProps {
   onFinish: () => void;
@@ -278,38 +279,43 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
         </div>
       </div>
 
-      {/* Trail progress sparklines */}
-      <div className="flex-none border-b border-border/40">
+      {/* Single centered elevation sparkline — replaces the old elev+route pair */}
+      <div className="flex-none bg-background border-b border-white/[0.04] relative z-20">
         <TrailProgress distancePct={markerProgress.distancePct} />
       </div>
 
-      {/* Marker buttons */}
-      <div className="flex-1 flex flex-col items-center justify-center px-6 gap-6">
-        {nextMarker <= MAX_MARKERS ? (
-          <>
-            <button
-              onClick={handleMarker}
-              className="w-44 h-44 rounded-full bg-primary/15 border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform touch-manipulation select-none"
-            >
-              <MapPin className="w-10 h-10 text-primary" />
-              <span className="text-4xl font-bold text-primary">{nextMarker}</span>
-              <span className="text-xs text-muted-foreground">Tap at marker</span>
-            </button>
+      {/* Map fills the middle region; marker + forgot buttons are centered over it */}
+      <div className="flex-1 relative overflow-hidden bg-background">
+        <MapBackground progress={markerProgress.distancePct / 100} />
+        <div className="map-vignette" />
 
-            <button
-              onClick={handleForgot}
-              className="flex items-center gap-2 px-4 py-2 rounded-lg bg-muted text-muted-foreground text-sm active:scale-95 transition-transform touch-manipulation select-none"
-            >
-              <SkipForward className="w-4 h-4" />
-              Forgot marker {nextMarker}
-            </button>
-          </>
-        ) : (
-          <div className="text-center text-primary">
-            <Flag className="w-10 h-10 mx-auto mb-2" />
-            <p className="font-semibold">All markers logged!</p>
-          </div>
-        )}
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 pointer-events-none">
+          {nextMarker <= MAX_MARKERS ? (
+            <>
+              <button
+                onClick={handleMarker}
+                className="marker-btn-translucent pointer-events-auto w-44 h-44 rounded-full bg-primary/[0.18] border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform touch-manipulation select-none"
+              >
+                <MapPin className="w-10 h-10 text-primary" />
+                <span className="text-4xl font-bold text-primary">{nextMarker}</span>
+                <span className="text-xs text-muted-foreground">Tap at marker</span>
+              </button>
+
+              <button
+                onClick={handleForgot}
+                className="pointer-events-auto flex items-center gap-2 px-3.5 py-2 rounded-lg bg-muted/70 text-muted-foreground text-sm border border-white/[0.05] backdrop-blur-sm active:scale-95 transition-transform touch-manipulation select-none"
+              >
+                <SkipForward className="w-4 h-4" />
+                Forgot marker {nextMarker}
+              </button>
+            </>
+          ) : (
+            <div className="pointer-events-auto text-center text-primary bg-background/70 backdrop-blur-sm rounded-xl px-5 py-4">
+              <Flag className="w-10 h-10 mx-auto mb-2" />
+              <p className="font-semibold">All markers logged!</p>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Lock overlay — covers marker area; timer header and bottom row sit above it via z-20 */}
