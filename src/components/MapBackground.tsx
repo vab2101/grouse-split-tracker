@@ -60,25 +60,16 @@ const START_POINT: [number, number] = project(
  * slid scene still covers the full viewport with contour lines.
  */
 function computeTransform(w: number, h: number) {
-  // Fit the trail bbox into the viewport (contain). This matches the prior
-  // "trail-fills-the-map" zoom, so the route stays visually large.
-  const scale = Math.min(w / SVG_VIEW.width, h / SVG_VIEW.height);
+  const SHIFT_X    = 0.2106 * w;   // positive = right
+  const SHIFT_Y    = 0.0537 * h;   // negative = up
+  const EXTRA_SCALE = 0.8500;
+  const ROTATE_DEG  = -70.00;
 
-  const drawnW = SVG_VIEW.width * scale;
-  const drawnH = SVG_VIEW.height * scale;
+  const scale = Math.min(w / SVG_VIEW.width, h / SVG_VIEW.height) * EXTRA_SCALE;
+  const tx    = (w - SVG_VIEW.width  * scale) / 2 + SHIFT_X;
+  const ty    = (h - SVG_VIEW.height * scale) / 2 + SHIFT_Y;
 
-  // Start centered, then push the whole scene up-and-right so the trail's
-  // BL → TR diagonal bows away from the centered marker button, landing
-  // above + right of it. The bottom Finish button ends up below the trail.
-  // Fractions are clamped so shifts don't exceed what the baked contour
-  // SVG can cover on the far side of the viewport.
-  const SHIFT_X = 0.12 * w; // push right
-  const SHIFT_Y = -0.15 * h; // push up
-
-  const tx = (w - drawnW) / 2 + SHIFT_X;
-  const ty = (h - drawnH) / 2 + SHIFT_Y;
-
-  return { scale, tx, ty };
+  return { scale, tx, ty, rotateDeg: ROTATE_DEG };
 }
 
 export default function MapBackground({ progress }: MapBackgroundProps) {
@@ -100,11 +91,13 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
   let scale = 1;
   let tx = 0;
   let ty = 0;
+  let rotateDeg = 0;
   if (size) {
     const t = computeTransform(size.w, size.h);
     scale = t.scale;
     tx = t.tx;
     ty = t.ty;
+    rotateDeg = t.rotateDeg;
   }
 
   const donePath = completedPath(progress);
@@ -119,7 +112,7 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
           viewBox={`0 0 ${size.w} ${size.h}`}
           className="block"
         >
-          <g transform={`translate(${tx} ${ty}) scale(${scale})`}>
+          <g transform={`translate(${tx} ${ty}) scale(${scale}) rotate(${rotateDeg} 635.5 509.0)`}>
             {/* Pre-baked contour lines — extends past the trail bbox so the
                 translated scene still covers the viewport everywhere. */}
             <image
