@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <title>Background Position Mockup · BCMC Trail</title>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box }
+    html, body { height:100%; overflow:hidden; background:#141816; font-family:system-ui,sans-serif; color:#fff }
+
+    #canvas {
+      position:fixed; inset:0;
+      cursor:grab; touch-action:none;
+    }
+    #canvas.dragging { cursor:grabbing }
+
+    /* ── UI overlay (dimmed, pointer-events:none) ─────────────────────────── */
+    #ui { position:fixed; inset:0; pointer-events:none }
+
+    .ui-header {
+      position:absolute; top:0; left:0; right:0;
+      padding:16px 24px 12px;
+      background:rgba(20,24,22,0.55);
+      border-bottom:1px solid rgba(255,255,255,0.06);
+      text-align:center; opacity:.4;
+    }
+    .ui-timer { font:bold 48px/1 monospace; letter-spacing:-.02em }
+    .ui-stats {
+      font-size:12px; color:rgba(255,255,255,.4);
+      margin-top:6px; display:flex; gap:16px; justify-content:center;
+    }
+
+    #ui-progress {
+      position:absolute; left:0; right:0; height:74px;
+      background:rgba(20,24,22,.45);
+      border-bottom:1px solid rgba(255,255,255,.03);
+      display:flex; align-items:center; justify-content:center;
+      opacity:.35;
+    }
+
+    #ui-marker {
+      position:absolute;
+      width:176px; height:176px; border-radius:50%;
+      border:2px solid rgba(80,200,120,.45);
+      background:rgba(80,200,120,.08);
+      left:50%; transform:translate(-50%,-50%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      gap:4px; opacity:.4;
+    }
+    .mnum { font-size:36px; font-weight:700; color:hsl(145,85%,70%); line-height:1 }
+    .mlbl { font-size:11px; color:rgba(255,255,255,.45) }
+
+    #ui-footer {
+      position:absolute; bottom:0; left:0; right:0;
+      padding:16px 24px;
+      background:rgba(20,24,22,.55);
+      display:flex; gap:12px; align-items:center;
+      opacity:.4;
+    }
+    .ui-finish {
+      flex:1; height:44px; border-radius:8px;
+      background:rgba(220,55,55,.35);
+      display:flex; align-items:center; justify-content:center; gap:8px;
+      font-size:15px; font-weight:600;
+    }
+    .ui-lock {
+      width:48px; height:48px; border-radius:50%;
+      background:rgba(255,255,255,.07);
+      display:flex; align-items:center; justify-content:center;
+    }
+
+    /* ── Controls panel ───────────────────────────────────────────────────── */
+    #controls {
+      position:fixed; bottom:72px; right:16px; z-index:50;
+      background:rgba(12,16,14,.96); border:1px solid rgba(255,255,255,.1);
+      border-radius:12px; padding:12px 14px; min-width:220px;
+      backdrop-filter:blur(16px); font-size:12px; line-height:1.4;
+    }
+    #controls h3 {
+      font-size:10px; font-weight:700; letter-spacing:.1em;
+      text-transform:uppercase; color:rgba(255,255,255,.3); margin-bottom:10px;
+    }
+    .row { display:flex; align-items:center; gap:8px; margin-bottom:7px }
+    .lbl { width:54px; font-size:11px; color:rgba(255,255,255,.5); flex-shrink:0 }
+    .val { width:50px; text-align:right; font:11px/1 monospace; color:hsl(145,85%,68%); flex-shrink:0 }
+    input[type=range] {
+      flex:1; height:3px; appearance:none; -webkit-appearance:none;
+      background:rgba(255,255,255,.15); border-radius:2px; outline:none; cursor:pointer;
+    }
+    input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+      background:hsl(145,70%,60%); cursor:pointer;
+    }
+    .sep { border:none; border-top:1px solid rgba(255,255,255,.07); margin:9px 0 }
+    .btn-row { display:flex; gap:8px; margin-bottom:4px }
+    .btn {
+      flex:1; padding:7px 0; border-radius:6px; border:none;
+      cursor:pointer; font-size:11px; font-weight:600;
+    }
+    #reset { background:rgba(255,255,255,.06); color:rgba(255,255,255,.5) }
+    #reset:hover { background:rgba(255,255,255,.12) }
+    #copy-btn { background:hsl(145,40%,26%); color:hsl(145,85%,80%) }
+    #copy-btn:hover { background:hsl(145,40%,33%) }
+    #copied { text-align:center; font-size:10px; color:hsl(145,85%,68%); height:14px; margin-top:3px }
+
+    /* ── Toggle overlay button ────────────────────────────────────────────── */
+    #toggle-ui {
+      position:fixed; top:12px; right:16px; z-index:50;
+      background:rgba(12,16,14,.9); border:1px solid rgba(255,255,255,.1);
+      border-radius:8px; padding:6px 12px;
+      font-size:11px; color:rgba(255,255,255,.45); cursor:pointer;
+      backdrop-filter:blur(8px); user-select:none;
+    }
+    #toggle-ui:hover { color:rgba(255,255,255,.8) }
+
+    /* ── Hint bar ─────────────────────────────────────────────────────────── */
+    #hint {
+      position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+      background:rgba(12,16,14,.9); border:1px solid rgba(255,255,255,.07);
+      border-radius:8px; padding:5px 14px;
+      font-size:11px; color:rgba(255,255,255,.35); white-space:nowrap;
+      backdrop-filter:blur(8px); pointer-events:none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- Full-screen SVG canvas -->
+<svg id="canvas" xmlns="http://www.w3.org/2000/svg" overflow="hidden">
+  <g id="scene"></g>
+</svg>
+
+<!-- Dimmed overlay showing real Active Hike UI elements for reference -->
+<div id="ui">
+  <div class="ui-header">
+    <div style="font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:rgba(255,255,255,.35);margin-bottom:4px">Elapsed</div>
+    <div class="ui-timer">0:00:00</div>
+    <div class="ui-stats">
+      <span>&#8593; 0 m / 858 m (0%)</span>
+      <span>&#8614; 0.00 km / 2.9 km (0%)</span>
+    </div>
+  </div>
+  <div id="ui-progress">
+    <span style="font-size:10px;color:rgba(255,255,255,.2)">&#x2015; elevation sparkline &#x2015;</span>
+  </div>
+  <div id="ui-marker">
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
+      stroke="hsl(145,85%,70%)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/>
+      <circle cx="12" cy="10" r="3"/>
+    </svg>
+    <span class="mnum">1</span>
+    <span class="mlbl">Tap at marker</span>
+  </div>
+  <div id="ui-footer">
+    <div class="ui-finish">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="3" y="3" width="18" height="18" rx="2"/></svg>
+      Finish
+    </div>
+    <div class="ui-lock">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none"
+        stroke="rgba(255,255,255,.45)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+        <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+      </svg>
+    </div>
+  </div>
+</div>
+
+<button id="toggle-ui" onclick="toggleUI()">Hide UI overlay</button>
+
+<!-- Parameter controls -->
+<div id="controls">
+  <h3>Background Transform</h3>
+  <div class="row">
+    <span class="lbl">Shift X</span>
+    <input type="range" id="sx"  min="-0.5" max="0.5" step="0.005" value="0.12">
+    <span class="val" id="sx-v">0.120</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Shift Y</span>
+    <input type="range" id="sy"  min="-0.5" max="0.5" step="0.005" value="-0.15">
+    <span class="val" id="sy-v">-0.150</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Zoom</span>
+    <input type="range" id="ez"  min="0.5"  max="3"   step="0.01"  value="1.0">
+    <span class="val" id="ez-v">1.00&#xD7;</span>
+  </div>
+  <div class="row">
+    <span class="lbl">Rotate</span>
+    <input type="range" id="rot" min="-180" max="180"  step="0.5"   value="0">
+    <span class="val" id="rot-v">0.0&#xB0;</span>
+  </div>
+  <hr class="sep">
+  <div class="btn-row">
+    <button class="btn" id="reset">Reset</button>
+    <button class="btn" id="copy-btn">Copy params</button>
+  </div>
+  <div id="copied"></div>
+</div>
+
+<div id="hint">Drag to pan &nbsp;&#183;&nbsp; Scroll / pinch to zoom &nbsp;&#183;&nbsp; Slider to rotate</div>
+
+<script>
+// ─────────────────────────────────────────────────────────────────────────────
+// Trail route data  (src/lib/trail-gpx.ts, [lat, lng] pairs)
+// ─────────────────────────────────────────────────────────────────────────────
+const T=[
+  [49.37118,-123.09839],[49.37112,-123.09828],[49.3711,-123.09817],
+  [49.37110699799465,-123.09801604232126],
+  [49.37111,-123.09795],[49.37111,-123.09781],[49.3711,-123.09773],
+  [49.37107,-123.09764],
+  [49.37105951692792,-123.09762322719799],
+  [49.37102,-123.09756],[49.37097,-123.09731],
+  [49.37097313367876,-123.09724732241027],
+  [49.37098,-123.09711],[49.37094,-123.09696],[49.37093,-123.09692],
+  [49.37089,-123.09683],
+  [49.370716523059414,-123.09656978525393],
+  [49.37063,-123.09644],[49.37063,-123.09633],[49.37059,-123.09624],
+  [49.37056,-123.09613],[49.37053,-123.09602],[49.37053,-123.0959],
+  [49.3705337804212,-123.09583951146644],
+  [49.37054,-123.09574],[49.37054,-123.0956],[49.37052,-123.09546],
+  [49.37045,-123.09536],[49.37039,-123.09524],[49.37046,-123.09506],
+  [49.37048,-123.095],[49.37049,-123.09495],[49.37052,-123.09482],
+  [49.37056120119201,-123.09475978237721],
+  [49.37065,-123.09463],[49.37075,-123.09448],[49.37077,-123.09438],
+  [49.37078,-123.09432],[49.37088,-123.09415],
+  [49.37088702077583,-123.0941269301903],
+  [49.37095,-123.09392],[49.37116,-123.09364],
+  [49.37121835867526,-123.09349734516826],
+  [49.37125,-123.09342],[49.3713,-123.09322],[49.37135,-123.09314],
+  [49.37146,-123.09307],[49.37148,-123.09301],[49.37142,-123.09279],
+  [49.37146,-123.09268],[49.37147,-123.09262],[49.37145,-123.09248],
+  [49.37148,-123.09242],[49.37169,-123.09229],[49.37172,-123.09218],
+  [49.37183,-123.09211],[49.37186,-123.09197],[49.37197,-123.09187],
+  [49.37199,-123.09179],[49.37193,-123.09153],[49.37187,-123.09116],
+  [49.37175,-123.091],[49.37174,-123.09091],[49.37189,-123.09084],
+  [49.37193724070837,-123.09079866435042],
+  [49.37197,-123.09077],[49.37199,-123.09064],[49.37203,-123.09055],
+  [49.37214,-123.09049],[49.37218,-123.09036],[49.37217,-123.09025],
+  [49.3721,-123.0901],[49.3721,-123.08991],[49.37207,-123.08981],
+  [49.37195,-123.0896],[49.37189,-123.0895],[49.37181,-123.08943],
+  [49.37169,-123.08945],[49.3716,-123.08936],[49.37154,-123.08918],
+  [49.37156,-123.08907],[49.3715,-123.08894],[49.37153,-123.08882],
+  [49.3716,-123.08875],
+  [49.37160859864093,-123.08872850336697],
+  [49.37162,-123.0887],[49.37161,-123.08865],[49.37157,-123.08856],
+  [49.37148,-123.08849],[49.37144,-123.08845],[49.37144,-123.08842],
+  [49.37147,-123.08839],[49.37165,-123.08832],[49.37177,-123.0883],
+  [49.37199,-123.08817],[49.3721,-123.08814],[49.37215,-123.08807],
+  [49.37216,-123.08795],[49.37214,-123.08789],
+  [49.37202086656082,-123.08771129990339],
+  [49.372,-123.08768],[49.37182,-123.08756],
+  [49.37179109747411,-123.08751122836844],
+  [49.37166,-123.08729],[49.37158,-123.08709],[49.37148,-123.08692],
+  [49.37151,-123.08681],[49.37165,-123.08669],
+  [49.37171692112567,-123.08665813257551],
+  [49.37186,-123.08659],[49.3721,-123.08636],[49.3721,-123.08627],
+  [49.37199,-123.08608],[49.37197,-123.08601],[49.37203,-123.08588],
+  [49.37196,-123.08569],[49.37196,-123.08556],
+  [49.37194117211978,-123.08551293162554],
+  [49.37186,-123.08531],[49.37181,-123.08496],[49.37193,-123.08484],
+  [49.37193,-123.08478],[49.37189,-123.08467],[49.37189,-123.08458],
+  [49.37193666548471,-123.0844555586179],
+  [49.37195,-123.08442],[49.37196,-123.08411],[49.3719,-123.08379],
+  [49.37191,-123.08364],[49.37199,-123.08357],[49.37216,-123.08351],
+  [49.37237,-123.08357],[49.37244,-123.08356],[49.3725,-123.08347],
+  [49.37252,-123.08331],[49.37254,-123.08321],[49.37257,-123.08318],
+  [49.37281,-123.08315],[49.37294,-123.08303],
+  [49.3730349360912,-123.08299591970147],
+  [49.37333,-123.08289],[49.37339,-123.08283],[49.37342,-123.08274],
+  [49.37336,-123.08254],[49.37338,-123.08247],[49.37358,-123.08241],
+  [49.37364,-123.0822],
+  [49.37371161559442,-123.08212573069899],
+  [49.37391,-123.08192],[49.37404,-123.08167],[49.37413,-123.08161],
+  [49.37438736506684,-123.08156562670864],
+  [49.37442,-123.08156],[49.37452,-123.08157],[49.37486,-123.08151],
+  [49.3749,-123.08148],
+  [49.37491353876132,-123.08146476873266],
+  [49.37498,-123.08139],[49.37505,-123.08138],[49.37521,-123.08141],
+  [49.37527,-123.08139],[49.37534,-123.08131],[49.37541,-123.08127],
+  [49.37556,-123.08132],
+  [49.37567308273671,-123.08134423213963],
+  [49.37584,-123.08138],[49.37593,-123.08142],[49.37598,-123.08147],
+  [49.37615,-123.08151],[49.3764,-123.08168],
+  [49.37643686072326,-123.08169134208626],
+  [49.37666,-123.08176],
+  [49.37670046648328,-123.0817662256382],
+  [49.37679,-123.08178],[49.37693,-123.08176],[49.37707,-123.08176],
+  [49.37712,-123.08177],[49.37716,-123.0818],[49.37722,-123.08184],
+  [49.37744,-123.08228],[49.3775,-123.08235],[49.37756,-123.08236],
+  [49.37772,-123.08228],[49.37779,-123.08229],[49.37783,-123.08234],
+  [49.37788,-123.08246],
+  [49.37805799869311,-123.08259692448101],
+  [49.37829780688254,-123.08278139019791],
+  [49.3784,-123.08286],[49.3785,-123.08304],[49.37856,-123.08318],
+  [49.37867,-123.08324],[49.3788,-123.08326],[49.37888,-123.08332],
+  [49.37897,-123.0833],
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Projection — mirrors src/lib/trail-bounds.ts exactly
+// ─────────────────────────────────────────────────────────────────────────────
+const LP=0.0008, LG=0.0012, CE=0.009, K=100000;
+const lats=T.map(p=>p[0]), lngs=T.map(p=>p[1]);
+const minLat=Math.min(...lats)-LP, maxLat=Math.max(...lats)+LP;
+const minLng=Math.min(...lngs)-LG, maxLng=Math.max(...lngs)+LG;
+const midLat=(minLat+maxLat)/2, COS=Math.cos(midLat*Math.PI/180);
+const SVG_W=(maxLng-minLng)*COS*K, SVG_H=(maxLat-minLat)*K;
+const CPX=CE*COS*K, CPY=CE*K;
+const CV={x:-CPX, y:-CPY, w:SVG_W+2*CPX, h:SVG_H+2*CPY};
+
+function project(lng,lat){
+  return [(lng-minLng)*COS*K, (maxLat-lat)*K];
+}
+
+// Pre-project trail points and build path
+const PTS = T.map(p=>project(p[1],p[0]));
+const TRAIL_D = PTS.map(([x,y],i)=>`${i?'L':'M'}${x.toFixed(2)} ${y.toFixed(2)}`).join(' ');
+const [S_X,S_Y] = PTS[0];       // start dot position
+const SVG_CX = SVG_W/2;         // rotation pivot X (centre of trail bbox)
+const SVG_CY = SVG_H/2;         // rotation pivot Y
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Mutable state
+// ─────────────────────────────────────────────────────────────────────────────
+let shiftX=0.12, shiftY=-0.15, zoom=1.0, rotateDeg=0;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Build SVG scene (once)
+// ─────────────────────────────────────────────────────────────────────────────
+const canvas = document.getElementById('canvas');
+const scene  = document.getElementById('scene');
+
+scene.innerHTML = `
+  <image href="/bcmc-contours.svg"
+    x="${CV.x.toFixed(3)}" y="${CV.y.toFixed(3)}"
+    width="${CV.w.toFixed(3)}" height="${CV.h.toFixed(3)}"
+    preserveAspectRatio="none"/>
+  <path id="glow" d="${TRAIL_D}" fill="none"
+    stroke="hsl(145,70%,55%)" stroke-opacity="0.22"
+    stroke-linecap="round" stroke-linejoin="round"/>
+  <path id="line" d="${TRAIL_D}" fill="none"
+    stroke="hsl(145,85%,70%)" stroke-opacity="0.6"
+    stroke-linecap="round" stroke-linejoin="round"/>
+  <circle id="sdot" cx="${S_X.toFixed(2)}" cy="${S_Y.toFixed(2)}"
+    fill="hsla(45,20%,95%,.9)" stroke="hsl(145,60%,40%)"/>
+`;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Render — recomputes transform and stroke widths
+// ─────────────────────────────────────────────────────────────────────────────
+function render() {
+  const w=window.innerWidth, h=window.innerHeight;
+  canvas.setAttribute('width', w);
+  canvas.setAttribute('height', h);
+  canvas.setAttribute('viewBox', `0 0 ${w} ${h}`);
+
+  // Same formula as computeTransform() in MapBackground.tsx
+  const sc  = Math.min(w/SVG_W, h/SVG_H) * zoom;
+  const tx  = (w - SVG_W*sc)/2 + shiftX*w;
+  const ty  = (h - SVG_H*sc)/2 + shiftY*h;
+
+  // Scale-dependent stroke widths (mirroring MapBackground.tsx)
+  const g = document.getElementById('glow');
+  const l = document.getElementById('line');
+  const d = document.getElementById('sdot');
+  if(g){ g.setAttribute('stroke-width',(12/sc).toFixed(3)); g.style.filter=`blur(${(6/sc).toFixed(2)}px)`; }
+  if(l)  l.setAttribute('stroke-width',(3.2/sc).toFixed(3));
+  if(d){ d.setAttribute('r',(5/sc).toFixed(3)); d.setAttribute('stroke-width',(2/sc).toFixed(3)); }
+
+  // Rotate around the centre of the SVG coordinate space
+  scene.setAttribute('transform',
+    `translate(${tx.toFixed(2)} ${ty.toFixed(2)}) scale(${sc.toFixed(6)}) rotate(${rotateDeg.toFixed(2)} ${SVG_CX.toFixed(2)} ${SVG_CY.toFixed(2)})`
+  );
+
+  positionUI(h);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Position the dimmed UI overlay elements relative to the map area
+// ─────────────────────────────────────────────────────────────────────────────
+function positionUI(h) {
+  const hdr  = document.querySelector('.ui-header');
+  const hdrH = hdr  ? hdr.getBoundingClientRect().height : 110;
+  const prog = document.getElementById('ui-progress');
+  if(prog) prog.style.top = hdrH + 'px';
+  const progH = prog ? prog.getBoundingClientRect().height : 74;
+  const ftr   = document.getElementById('ui-footer');
+  const ftrH  = ftr  ? ftr.getBoundingClientRect().height : 76;
+  const mk    = document.getElementById('ui-marker');
+  if(mk) mk.style.top = (hdrH + progH + (h - hdrH - progH - ftrH)/2) + 'px';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Slider ↔ state synchronisation
+// ─────────────────────────────────────────────────────────────────────────────
+function syncSliders() {
+  document.getElementById('sx').value  = shiftX;
+  document.getElementById('sy').value  = shiftY;
+  document.getElementById('ez').value  = zoom;
+  document.getElementById('rot').value = rotateDeg;
+  updateLabels();
+}
+
+function updateLabels() {
+  document.getElementById('sx-v').textContent  = shiftX.toFixed(3);
+  document.getElementById('sy-v').textContent  = shiftY.toFixed(3);
+  document.getElementById('ez-v').textContent  = zoom.toFixed(2) + '\xD7';
+  document.getElementById('rot-v').textContent = rotateDeg.toFixed(1) + '\xB0';
+}
+
+['sx','sy','ez','rot'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    shiftX    = +document.getElementById('sx').value;
+    shiftY    = +document.getElementById('sy').value;
+    zoom      = +document.getElementById('ez').value;
+    rotateDeg = +document.getElementById('rot').value;
+    updateLabels();
+    render();
+  });
+});
+
+document.getElementById('reset').addEventListener('click', () => {
+  shiftX=0.12; shiftY=-0.15; zoom=1.0; rotateDeg=0;
+  syncSliders(); render();
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Copy parameters
+// ─────────────────────────────────────────────────────────────────────────────
+document.getElementById('copy-btn').addEventListener('click', () => {
+  const sx4  = shiftX.toFixed(4);
+  const sy4  = shiftY.toFixed(4);
+  const z4   = zoom.toFixed(4);
+  const r2   = rotateDeg.toFixed(2);
+  const cxf  = SVG_CX.toFixed(1);
+  const cyf  = SVG_CY.toFixed(1);
+
+  const code = [
+    '// ── Paste into computeTransform() in MapBackground.tsx ─────────────────',
+    `const SHIFT_X    = ${sx4} * w;   // positive = right`,
+    `const SHIFT_Y    = ${sy4} * h;   // negative = up`,
+    `const EXTRA_SCALE = ${z4};`,
+    `const ROTATE_DEG  = ${r2};`,
+    '',
+    '// Updated transform for the SVG <g> element:',
+    '// Replace the existing translate+scale with:',
+    '//',
+    '//   const scale = Math.min(w / SVG_VIEW.width, h / SVG_VIEW.height) * EXTRA_SCALE;',
+    '//   const tx    = (w - SVG_VIEW.width  * scale) / 2 + SHIFT_X;',
+    '//   const ty    = (h - SVG_VIEW.height * scale) / 2 + SHIFT_Y;',
+    '//',
+    `//   transform={\`translate(\${tx} \${ty}) scale(\${scale}) rotate(\${ROTATE_DEG} ${cxf} ${cyf})\`}`,
+    '//',
+    `// SVG rotation pivot: (${cxf}, ${cyf})  — centre of the trail bounding box`,
+  ].join('\n');
+
+  navigator.clipboard.writeText(code).then(() => {
+    const el = document.getElementById('copied');
+    el.textContent = '\u2713 Copied to clipboard';
+    setTimeout(() => { el.textContent = ''; }, 2500);
+  }).catch(() => {
+    prompt('Copy these parameters:', code);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Pointer interactions  — drag to pan, scroll / pinch to zoom
+// ─────────────────────────────────────────────────────────────────────────────
+const ptrs = new Map();   // pointerId → {x, y}
+let dragAnchor = null;    // {sx, sy, px, py}  snapshotted at gesture start
+let lastPinch  = null;    // previous pinch distance
+
+function pinchDist() {
+  const pts = [...ptrs.values()];
+  if(pts.length < 2) return null;
+  const dx=pts[0].x-pts[1].x, dy=pts[0].y-pts[1].y;
+  return Math.sqrt(dx*dx+dy*dy);
+}
+
+canvas.addEventListener('pointerdown', e => {
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  canvas.setPointerCapture(e.pointerId);
+  if(ptrs.size === 1) {
+    dragAnchor = {sx:shiftX, sy:shiftY, px:e.clientX, py:e.clientY};
+    canvas.classList.add('dragging');
+  } else {
+    // Second finger arrived — switch to pinch-zoom; anchor on centroid
+    lastPinch  = pinchDist();
+    dragAnchor = null;
+  }
+});
+
+canvas.addEventListener('pointermove', e => {
+  if(!ptrs.has(e.pointerId)) return;
+  ptrs.set(e.pointerId, {x:e.clientX, y:e.clientY});
+  const w=window.innerWidth, h=window.innerHeight;
+
+  if(ptrs.size >= 2) {
+    const d = pinchDist();
+    if(lastPinch && d) {
+      zoom = Math.max(0.5, Math.min(3, zoom * (d / lastPinch)));
+      lastPinch = d;
+    }
+    syncSliders(); render();
+  } else if(ptrs.size === 1 && dragAnchor) {
+    shiftX = dragAnchor.sx + (e.clientX - dragAnchor.px) / w;
+    shiftY = dragAnchor.sy + (e.clientY - dragAnchor.py) / h;
+    syncSliders(); render();
+  }
+});
+
+['pointerup','pointercancel'].forEach(ev => {
+  canvas.addEventListener(ev, e => {
+    ptrs.delete(e.pointerId);
+    lastPinch = null;
+    if(ptrs.size === 0) {
+      dragAnchor = null;
+      canvas.classList.remove('dragging');
+    } else if(ptrs.size === 1) {
+      // One finger left — resume pan from current position
+      const [pt] = [...ptrs.values()];
+      dragAnchor = {sx:shiftX, sy:shiftY, px:pt.x, py:pt.y};
+    }
+  });
+});
+
+canvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  zoom = Math.max(0.5, Math.min(3, zoom * (e.deltaY > 0 ? 0.95 : 1.053)));
+  syncSliders(); render();
+}, {passive:false});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Toggle UI overlay visibility
+// ─────────────────────────────────────────────────────────────────────────────
+let uiVisible = true;
+function toggleUI() {
+  uiVisible = !uiVisible;
+  document.getElementById('ui').style.display       = uiVisible ? '' : 'none';
+  document.getElementById('toggle-ui').textContent  = uiVisible ? 'Hide UI overlay' : 'Show UI overlay';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Init
+// ─────────────────────────────────────────────────────────────────────────────
+render();
+window.addEventListener('resize', render);
+</script>
+</body>
+</html>
