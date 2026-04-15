@@ -42,32 +42,69 @@ while ((m = re.exec(trailGpxSrc)) !== null) {
 }
 if (ROUTE.length < 50) throw new Error(`Parsed only ${ROUTE.length} points`);
 
+// Must match src/lib/trail-bounds.ts exactly
 const LAT_PAD = 0.0008;
 const LNG_PAD = 0.0012;
+const CONTOUR_EXTRA_LAT = 0.009;
+const CONTOUR_EXTRA_LNG = 0.009;
+
 const lats = ROUTE.map((p) => p.lat);
 const lngs = ROUTE.map((p) => p.lng);
-const GEO = {
+
+// TRAIL_GEO — the tight bbox used as the projection origin so that the
+// contour SVG coordinates line up with the runtime-projected trail path.
+const TRAIL_GEO = {
   minLat: Math.min(...lats) - LAT_PAD,
   maxLat: Math.max(...lats) + LAT_PAD,
   minLng: Math.min(...lngs) - LNG_PAD,
   maxLng: Math.max(...lngs) + LNG_PAD,
 };
-const MID_LAT = (GEO.minLat + GEO.maxLat) / 2;
+
+// CONTOUR_GEO — the larger bbox we actually fetch DEM tiles for. This lets
+// MapBackground translate the scene at runtime without leaving blank strips
+// of viewport uncovered by contour lines.
+const GEO = {
+  minLat: TRAIL_GEO.minLat - CONTOUR_EXTRA_LAT,
+  maxLat: TRAIL_GEO.maxLat + CONTOUR_EXTRA_LAT,
+  minLng: TRAIL_GEO.minLng - CONTOUR_EXTRA_LNG,
+  maxLng: TRAIL_GEO.maxLng + CONTOUR_EXTRA_LNG,
+};
+
+const MID_LAT = (TRAIL_GEO.minLat + TRAIL_GEO.maxLat) / 2;
 const COS_MID_LAT = Math.cos((MID_LAT * Math.PI) / 180);
 const SCALE = 100000;
-const SVG_W = (GEO.maxLng - GEO.minLng) * COS_MID_LAT * SCALE;
-const SVG_H = (GEO.maxLat - GEO.minLat) * SCALE;
 
+// Trail SVG viewBox dims — the runtime "trail coord system" everything is in.
+const SVG_W = (TRAIL_GEO.maxLng - TRAIL_GEO.minLng) * COS_MID_LAT * SCALE;
+const SVG_H = (TRAIL_GEO.maxLat - TRAIL_GEO.minLat) * SCALE;
+
+// Contour viewBox — extends into negative x/y past the trail's bbox.
+const CONTOUR_PAD_X = CONTOUR_EXTRA_LNG * COS_MID_LAT * SCALE;
+const CONTOUR_PAD_Y = CONTOUR_EXTRA_LAT * SCALE;
+const CONTOUR_VIEW_X = -CONTOUR_PAD_X;
+const CONTOUR_VIEW_Y = -CONTOUR_PAD_Y;
+const CONTOUR_VIEW_W = SVG_W + 2 * CONTOUR_PAD_X;
+const CONTOUR_VIEW_H = SVG_H + 2 * CONTOUR_PAD_Y;
+
+// Project using the TRAIL origin so trail + contours share a coord system.
 const project = (lng, lat) => [
-  (lng - GEO.minLng) * COS_MID_LAT * SCALE,
-  (GEO.maxLat - lat) * SCALE,
+  (lng - TRAIL_GEO.minLng) * COS_MID_LAT * SCALE,
+  (TRAIL_GEO.maxLat - lat) * SCALE,
 ];
 
 console.log(
-  `bbox: lng [${GEO.minLng.toFixed(5)}, ${GEO.maxLng.toFixed(5)}] ` +
+  `trail bbox: lng [${TRAIL_GEO.minLng.toFixed(5)}, ${TRAIL_GEO.maxLng.toFixed(5)}] ` +
+    `lat [${TRAIL_GEO.minLat.toFixed(5)}, ${TRAIL_GEO.maxLat.toFixed(5)}]`
+);
+console.log(
+  `contour bbox: lng [${GEO.minLng.toFixed(5)}, ${GEO.maxLng.toFixed(5)}] ` +
     `lat [${GEO.minLat.toFixed(5)}, ${GEO.maxLat.toFixed(5)}]`
 );
-console.log(`SVG viewBox: ${SVG_W.toFixed(1)} x ${SVG_H.toFixed(1)}`);
+console.log(`trail SVG viewBox: ${SVG_W.toFixed(1)} x ${SVG_H.toFixed(1)}`);
+console.log(
+  `contour SVG viewBox: ${CONTOUR_VIEW_X.toFixed(1)} ${CONTOUR_VIEW_Y.toFixed(1)} ` +
+    `${CONTOUR_VIEW_W.toFixed(1)} x ${CONTOUR_VIEW_H.toFixed(1)}`
+);
 
 // ---------------------------------------------------------------------------
 // 2. Figure out which Terrarium z=14 tiles cover that bbox, fetch + decode
@@ -104,23 +141,34 @@ console.log(
 
 async function fetchTile(z, x, y) {
   const url = `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/${z}/${x}/${y}.png`;
-  console.log(`  fetch ${url}`);
-  const res = await fetch(url);
-  if (!res.ok) throw new Error(`${url} → ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  return await new Promise((resolve, reject) => {
-    new PNG().parse(buf, (err, png) => (err ? reject(err) : resolve(png)));
-  });
+  let lastErr;
+  for (let attempt = 1; attempt <= 5; attempt++) {
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`${url} → ${res.status}`);
+      const buf = Buffer.from(await res.arrayBuffer());
+      return await new Promise((resolve, reject) => {
+        new PNG().parse(buf, (err, png) => (err ? reject(err) : resolve(png)));
+      });
+    } catch (e) {
+      lastErr = e;
+      console.log(`  retry ${attempt}/5 after: ${e.message}`);
+      await new Promise((r) => setTimeout(r, 500 * attempt));
+    }
+  }
+  throw lastErr;
 }
 
-// Fetch all tiles in parallel
-const tiles = await Promise.all(
-  Array.from({ length: NY }, (_, j) =>
-    Promise.all(
-      Array.from({ length: NX }, (_, i) => fetchTile(Z, tx0 + i, ty0 + j))
-    )
-  )
-);
+// Fetch tiles sequentially to avoid rate-limit 503s.
+console.log(`fetching ${NX * NY} tiles...`);
+const tiles = [];
+for (let j = 0; j < NY; j++) {
+  const row = [];
+  for (let i = 0; i < NX; i++) {
+    row.push(await fetchTile(Z, tx0 + i, ty0 + j));
+  }
+  tiles.push(row);
+}
 
 // ---------------------------------------------------------------------------
 // 3. Stitch tiles into one big elevation grid
@@ -242,10 +290,10 @@ for (const eleStr of Object.keys(isolines)) {
       const [sx, sy] = project(lng, lat);
       projected.push(sx, sy);
       if (
-        sx >= -MARGIN &&
-        sx <= SVG_W + MARGIN &&
-        sy >= -MARGIN &&
-        sy <= SVG_H + MARGIN
+        sx >= CONTOUR_VIEW_X - MARGIN &&
+        sx <= CONTOUR_VIEW_X + CONTOUR_VIEW_W + MARGIN &&
+        sy >= CONTOUR_VIEW_Y - MARGIN &&
+        sy <= CONTOUR_VIEW_Y + CONTOUR_VIEW_H + MARGIN
       ) {
         anyInside = true;
       }
@@ -273,7 +321,7 @@ console.log(
 // ---------------------------------------------------------------------------
 
 const svg = `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${SVG_W.toFixed(2)} ${SVG_H.toFixed(2)}" preserveAspectRatio="none">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="${CONTOUR_VIEW_X.toFixed(2)} ${CONTOUR_VIEW_Y.toFixed(2)} ${CONTOUR_VIEW_W.toFixed(2)} ${CONTOUR_VIEW_H.toFixed(2)}" preserveAspectRatio="none">
   <g class="contours-minor" fill="none" stroke="hsla(145, 35%, 55%, 0.22)" stroke-width="0.6" stroke-linecap="round" stroke-linejoin="round">
     <path d="${minorPaths.join(" ")}"/>
   </g>
