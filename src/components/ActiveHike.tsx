@@ -240,11 +240,28 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       {/* Timer — sits above the lock overlay so the time stays visible */}
       <div className="flex-none bg-background border-b border-border px-6 py-4 relative z-20">
         <div className="flex items-start justify-between">
-          <div className="flex-1 text-center">
-            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1">Elapsed</p>
-            <p className="text-5xl font-mono-display font-bold text-timer tabular-nums">
-              {formatDuration(elapsed)}
-            </p>
+          <div className="flex-1">
+            <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1 text-center">Elapsed</p>
+            <div className="flex justify-center gap-12">
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-0.5">total</p>
+                <p className="text-4xl font-mono-display font-bold text-timer tabular-nums">
+                  {formatDuration(elapsed)}
+                </p>
+              </div>
+              <div className="text-center">
+                <p className="text-xs text-muted-foreground mb-0.5">
+                  {attempt && attempt.splits.length > 0
+                    ? `since marker ${attempt.splits[attempt.splits.length - 1].marker}`
+                    : "since start"}
+                </p>
+                <p className="text-4xl font-mono-display font-bold text-timer tabular-nums">
+                  {attempt && attempt.splits.length > 0
+                    ? formatDuration(elapsed - attempt.splits[attempt.splits.length - 1].elapsed)
+                    : formatDuration(elapsed)}
+                </p>
+              </div>
+            </div>
             <div className="mt-2 space-y-0.5">
                   <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
                     <TrendingUp className="w-3.5 h-3.5" />
