@@ -60,8 +60,8 @@ const START_POINT: [number, number] = project(
  * slid scene still covers the full viewport with contour lines.
  */
 function computeTransform(w: number, h: number) {
-  const SHIFT_X    = 0.2106 * w;   // positive = right
-  const SHIFT_Y    = 0.0537 * h;   // negative = up
+  const SHIFT_X    = 0.106 * w;   // positive = right
+  const SHIFT_Y    = -0.0137 * h;   // negative = up
   const EXTRA_SCALE = 0.8500;
   const ROTATE_DEG  = -70.00;
 
