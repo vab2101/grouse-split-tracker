@@ -1,3 +1,3 @@
-# Welcome to your Lovable project
+# Grouse Split Tracker
 
-TODO: Document your project here
+Lightweight app to track trail marker segments and total hike time for the BCMC trail on Grouse Mountain.
