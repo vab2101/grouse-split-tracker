@@ -1,5 +1,5 @@
 {
-  "name": "vite_react_shadcn_ts",
+  "name": "grouse-split-tracker",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -81,7 +81,6 @@
     "eslint-plugin-react-refresh": "^0.4.20",
     "globals": "^15.15.0",
     "jsdom": "^20.0.3",
-    "lovable-tagger": "^1.1.13",
     "maplibre-contour": "^0.1.0",
     "pngjs": "^7.0.0",
     "postcss": "^8.5.6",
