@@ -24,7 +24,7 @@ export default function Index() {
   return (
     <div className="h-screen flex flex-col max-w-md mx-auto">
       {/* Content */}
-      <div className="flex-1 min-h-0">
+      <div className="flex-1 min-h-0 overflow-y-auto">
         {tab === "track" ? (
           <ActiveHike onFinish={() => { setHikeActive(false); refresh(); setTab("history"); }} onActiveChange={setHikeActive} />
         ) : (
