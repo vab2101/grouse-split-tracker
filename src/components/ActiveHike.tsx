@@ -242,7 +242,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1 text-center">Elapsed</p>
-            <div className="flex justify-center gap-6">
+            <div className="flex justify-center gap-12">
               <div className="text-center">
                 <p className="text-xs text-muted-foreground mb-0.5">total</p>
                 <p className="text-4xl font-mono-display font-bold text-timer tabular-nums">
