@@ -29,7 +29,8 @@ interface ActiveHikeProps {
   onActiveChange?: (active: boolean) => void;
 }
 
-const LOCK_HOLD_MS = 3000;
+const LOCK_HOLD_MS = 1000;
+const UNLOCK_HOLD_MS = 2000;
 const LOCK_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44 in the centered progress indicator
 
 export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
@@ -173,12 +174,13 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     onFinish();
   }, [attempt, onFinish]);
 
-  // Lock hold: start filling the progress ring; toggle lock after 3s
+  // Lock hold: start filling the progress ring; toggle lock after hold duration
   const startLockHold = useCallback(() => {
+    const holdMs = isLocked ? UNLOCK_HOLD_MS : LOCK_HOLD_MS;
     lockStartRef.current = Date.now();
     lockHoldRef.current = setInterval(() => {
       const held = Date.now() - (lockStartRef.current ?? Date.now());
-      const progress = Math.min(100, (held / LOCK_HOLD_MS) * 100);
+      const progress = Math.min(100, (held / holdMs) * 100);
       setLockProgress(progress);
       if (progress >= 100) {
         clearInterval(lockHoldRef.current);
@@ -187,7 +189,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
         setIsLocked((prev) => !prev);
       }
     }, 50);
-  }, []);
+  }, [isLocked]);
 
   const cancelLockHold = useCallback(() => {
     clearInterval(lockHoldRef.current);
