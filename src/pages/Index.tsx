@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Mountain, History, Play } from "lucide-react";
 import ActiveHike from "@/components/ActiveHike";
 import HikeHistory from "@/components/HikeHistory";
@@ -10,6 +10,10 @@ export default function Index() {
   const [tab, setTab] = useState<Tab>("track");
   const [attempts, setAttempts] = useState<HikeAttempt[]>(() => loadAttempts());
   const [hikeActive, setHikeActive] = useState(false);
+
+  useEffect(() => {
+    screen.orientation?.lock?.("portrait").catch(() => {});
+  }, []);
 
   const refresh = useCallback(() => setAttempts(loadAttempts()), []);
 
