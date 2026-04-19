@@ -12,7 +12,7 @@ export default function Index() {
   const [hikeActive, setHikeActive] = useState(false);
 
   useEffect(() => {
-    screen.orientation?.lock?.("portrait").catch(() => {});
+    screen.orientation?.lock?.("portrait")?.catch(() => {});
   }, []);
 
   const refresh = useCallback(() => setAttempts(loadAttempts()), []);

@@ -14,6 +14,7 @@ import {
   saveAttempts,
   loadAttempts,
   createAttempt,
+  generateId,
   recordMarkerGps,
   saveActiveHike,
   loadActiveHike,
@@ -140,7 +141,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     if (!text) return;
     const now = Date.now();
     const tag: HikeTag = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       timestamp: now,
       elapsed: now - attempt.startTime,
       text,
