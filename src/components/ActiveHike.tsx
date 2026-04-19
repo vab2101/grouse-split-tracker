@@ -135,6 +135,16 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     });
   }, []);
 
+  const currentCoord = useCallback((): GpsCoord | undefined => {
+    if (!position) return undefined;
+    return {
+      latitude: position.latitude,
+      longitude: position.longitude,
+      altitude: position.altitude,
+      accuracy: position.accuracy,
+    };
+  }, [position]);
+
   const handleTag = useCallback(() => {
     if (!attempt || !isRunning) return;
     const text = window.prompt("Tag text")?.trim();
@@ -243,16 +253,6 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       commitSplit(split);
     }
   }, [position, isRunning, attempt, nextMarker, nextMarkerPos, mode, commitSplit, approachInZone]);
-
-  const currentCoord = useCallback((): GpsCoord | undefined => {
-    if (!position) return undefined;
-    return {
-      latitude: position.latitude,
-      longitude: position.longitude,
-      altitude: position.altitude,
-      accuracy: position.accuracy,
-    };
-  }, [position]);
 
   const handleStart = useCallback(() => {
     const a = createAttempt();
