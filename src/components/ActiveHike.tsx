@@ -236,7 +236,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   }
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className={`flex flex-col h-full relative${isLocked ? " hike-screen-locked" : ""}`}>
       {/* Timer — sits above the lock overlay so the time stays visible */}
       <div className="flex-none bg-background border-b border-border px-6 py-4 relative z-20">
         <div className="flex items-start justify-between">
