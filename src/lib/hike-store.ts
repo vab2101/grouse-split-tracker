@@ -63,6 +63,16 @@ export interface MarkerGpsData {
   [marker: number]: { latitudes: number[]; longitudes: number[]; altitudes: number[] };
 }
 
+export function generateId(): string {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+}
+
 const STORAGE_KEY = "bcmc-hike-attempts";
 const MARKER_GPS_KEY = "bcmc-marker-gps";
 const ACTIVE_HIKE_KEY = "bcmc-active-hike";
@@ -148,7 +158,7 @@ export function getAverageMarkerPositions(): Map<number, { lat: number; lng: num
 
 export function createAttempt(): HikeAttempt {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     date: new Date().toISOString(),
     startTime: Date.now(),
     splits: [],
