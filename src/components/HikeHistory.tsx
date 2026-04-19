@@ -6,7 +6,7 @@ import {
   formatDuration,
   exportHikesAsCsv,
 } from "@/lib/hike-store";
-import { Trophy, Calendar, Clock, Trash2, BarChart3, Download, ChevronDown, ChevronUp } from "lucide-react";
+import { Trophy, Calendar, Clock, Trash2, BarChart3, Download, ChevronDown, ChevronUp, Tag as TagIcon } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -214,35 +214,63 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                       <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none bg-primary/20 text-primary">S</span>
                       <span className="col-span-3 text-muted-foreground italic text-[10px]">Start</span>
                     </div>
-                    {a.splits.map((s, i) => {
-                      const prevSplit = a.splits[i - 1];
-                      const seg = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
-                      const stats = !s.skipped ? markerStats.get(s.marker) : undefined;
-                      const avg = stats ? Math.round(stats.totalMs / stats.count) : undefined;
-                      return (
-                        <div
-                          key={s.marker}
-                          className={`grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs ${s.skipped ? "opacity-40" : ""}`}
-                        >
-                          <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none ${s.skipped ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"}`}>
-                            {s.marker}
-                          </span>
-                          {s.skipped ? (
-                            <span className="col-span-3 text-muted-foreground italic text-[10px]">skipped</span>
-                          ) : (
-                            <>
-                              <span className="font-mono-display text-right">{formatDuration(seg)}</span>
-                              <span className="font-mono-display text-right text-muted-foreground">
-                                {stats ? formatDuration(stats.best) : "—"}
+                    {(() => {
+                      type Row =
+                        | { kind: "split"; at: number; split: typeof a.splits[number]; index: number }
+                        | { kind: "tag"; at: number; tag: NonNullable<typeof a.tags>[number] };
+                      const rows: Row[] = a.splits.map((s, i) => ({ kind: "split", at: s.timestamp, split: s, index: i }));
+                      for (const t of a.tags ?? []) rows.push({ kind: "tag", at: t.timestamp, tag: t });
+                      rows.sort((x, y) => x.at - y.at);
+                      return rows.map((row) => {
+                        if (row.kind === "tag") {
+                          return (
+                            <div
+                              key={`tag-${row.tag.id}`}
+                              className="grid grid-cols-[1.5rem_1fr] gap-x-2 items-center py-1 text-xs"
+                            >
+                              <span className="w-5 h-5 rounded-full flex items-center justify-center flex-none bg-accent/20 text-accent">
+                                <TagIcon className="w-3 h-3" />
                               </span>
-                              <span className="font-mono-display text-right text-muted-foreground">
-                                {avg !== undefined ? formatDuration(avg) : "—"}
+                              <span className="text-muted-foreground text-[11px]">
+                                <span className="text-foreground">{row.tag.text}</span>
+                                <span className="ml-2 font-mono-display text-[10px] text-muted-foreground/70">
+                                  {formatDuration(row.tag.elapsed)}
+                                </span>
                               </span>
-                            </>
-                          )}
-                        </div>
-                      );
-                    })}
+                            </div>
+                          );
+                        }
+                        const s = row.split;
+                        const i = row.index;
+                        const prevSplit = a.splits[i - 1];
+                        const seg = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
+                        const stats = !s.skipped ? markerStats.get(s.marker) : undefined;
+                        const avg = stats ? Math.round(stats.totalMs / stats.count) : undefined;
+                        return (
+                          <div
+                            key={`split-${s.marker}`}
+                            className={`grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs ${s.skipped ? "opacity-40" : ""}`}
+                          >
+                            <span className={`w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none ${s.skipped ? "bg-muted text-muted-foreground" : "bg-primary/20 text-primary"}`}>
+                              {s.marker}
+                            </span>
+                            {s.skipped ? (
+                              <span className="col-span-3 text-muted-foreground italic text-[10px]">skipped</span>
+                            ) : (
+                              <>
+                                <span className="font-mono-display text-right">{formatDuration(seg)}</span>
+                                <span className="font-mono-display text-right text-muted-foreground">
+                                  {stats ? formatDuration(stats.best) : "—"}
+                                </span>
+                                <span className="font-mono-display text-right text-muted-foreground">
+                                  {avg !== undefined ? formatDuration(avg) : "—"}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                        );
+                      });
+                    })()}
                     {/* Finish row */}
                     {a.splits.length > 0 && !a.splits[a.splits.length - 1].skipped && (() => {
                       const lastSplit = a.splits[a.splits.length - 1];

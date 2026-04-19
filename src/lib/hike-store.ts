@@ -2,9 +2,11 @@
 // Official stats from grousemountain.com/BCMC: 2.4 km, 796m elevation gain
 
 export const MAX_MARKERS = 50;
-export const TRAIL_DISTANCE_KM = 2.4;
+export const TRAIL_DISTANCE_KM = 2.52;
 export const TRAIL_ELEVATION_GAIN = 796;
-export const TRAIL_BASE_ELEVATION = 290;
+export const TRAIL_BASE_ELEVATION = 297;
+
+export type SplitMode = "auto" | "manual";
 
 export interface GpsCoord {
   latitude: number;
@@ -20,6 +22,23 @@ export interface Split {
   elevation?: number;
   coords?: GpsCoord; // GPS location when marker was tapped
   skipped?: boolean; // true if marker was missed and retroactively inserted
+  mode?: SplitMode; // logging mode used to create this split (hidden in UI, exported in CSV)
+  // Progress override for Manual mode when the marker has no known position.
+  // When present, UI uses these values instead of falling back to getProgressForMarker().
+  progressOverride?: {
+    distanceM: number;
+    distancePct: number;
+    elevation: number;
+    elevationPct: number;
+  };
+}
+
+export interface HikeTag {
+  id: string;
+  timestamp: number; // ms since epoch
+  elapsed: number; // ms since hike start
+  text: string;
+  coords?: GpsCoord; // saved but not exported / not shown in UI
 }
 
 export interface HikeAttempt {
@@ -31,6 +50,12 @@ export interface HikeAttempt {
   splits: Split[];
   elevationData: { time: number; elevation: number }[];
   completed: boolean;
+  // GPS fixes captured when the user tapped Start / Finish. Stored but never surfaced in the UI.
+  startCoords?: GpsCoord;
+  endCoords?: GpsCoord;
+  // User override: when true, auto-tracking is disabled regardless of GPS/marker availability.
+  manualOverride?: boolean;
+  tags?: HikeTag[];
 }
 
 // Averaged GPS coordinates per marker across all attempts
@@ -159,12 +184,23 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
     "Trail Marker Timestamp",
     "Trail Marker GPS Position",
     "Trail Marker GPS Accuracy (m)",
+    "Logging Mode",
   ];
+
+  const formatCoord = (c?: GpsCoord): { pos: string; acc: string } => {
+    if (!c) return { pos: "", acc: "" };
+    const altStr = c.altitude != null ? `,${c.altitude.toFixed(1)}` : "";
+    return {
+      pos: `${c.latitude.toFixed(7)},${c.longitude.toFixed(7)}${altStr}`,
+      acc: c.accuracy != null ? c.accuracy.toFixed(1) : "",
+    };
+  };
 
   const rows: string[][] = [];
   for (const attempt of attempts) {
     if (!attempt.completed) continue;
     const startDateTime = new Date(attempt.startTime).toISOString();
+    const startGps = formatCoord(attempt.startCoords);
     // Start row (marker 0)
     rows.push([
       attempt.id,
@@ -172,10 +208,34 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
       "0",
       "false",
       startDateTime,
-      "",
+      startGps.pos,
+      startGps.acc,
       "",
     ]);
-    for (const split of attempt.splits) {
+    // Build a combined, time-ordered event stream of splits + tags so tags appear
+    // in chronological order next to the marker rows they sit between.
+    type Event =
+      | { kind: "split"; at: number; split: Split }
+      | { kind: "tag"; at: number; tag: HikeTag };
+    const events: Event[] = [];
+    for (const s of attempt.splits) events.push({ kind: "split", at: s.timestamp, split: s });
+    for (const t of attempt.tags ?? []) events.push({ kind: "tag", at: t.timestamp, tag: t });
+    events.sort((a, b) => a.at - b.at);
+    for (const ev of events) {
+      if (ev.kind === "tag") {
+        rows.push([
+          attempt.id,
+          startDateTime,
+          `Tag: ${ev.tag.text}`,
+          "false",
+          new Date(ev.tag.timestamp).toISOString(),
+          "", // position intentionally omitted
+          "",
+          "",
+        ]);
+        continue;
+      }
+      const split = ev.split;
       const markerTimestamp = new Date(split.timestamp).toISOString();
       const forgotten = split.skipped ? "true" : "false";
       let gpsPosition = "";
@@ -196,18 +256,21 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
         markerTimestamp,
         gpsPosition,
         gpsAccuracy,
+        split.mode ?? "",
       ]);
     }
     // Finish row (marker 51)
     if (attempt.endTime) {
+      const endGps = formatCoord(attempt.endCoords);
       rows.push([
         attempt.id,
         startDateTime,
         "51",
         "false",
         new Date(attempt.endTime).toISOString(),
-        "",
-        "",
+        endGps.pos,
+        endGps.acc,
+        "manual",
       ]);
     }
   }

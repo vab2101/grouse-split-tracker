@@ -3,7 +3,9 @@ import { useGps } from "@/hooks/use-gps";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import {
   HikeAttempt,
+  HikeTag,
   Split,
+  SplitMode,
   MAX_MARKERS,
   TRAIL_DISTANCE_KM,
   TRAIL_ELEVATION_GAIN,
@@ -18,9 +20,17 @@ import {
   clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock, Tag as TagIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { getProgressForMarker } from "@/lib/trail-markers";
+import {
+  getProgressForMarker,
+  getMarkerPosition,
+  isMarkerMissing,
+  haversineM,
+  snapToMasterTrail,
+  interpolateMarkerProgress,
+  MarkerProgress,
+} from "@/lib/trail-markers";
 import TrailProgress from "@/components/TrailProgress";
 import MapBackground from "@/components/MapBackground";
 
@@ -33,6 +43,21 @@ const LOCK_HOLD_MS = 1000;
 const UNLOCK_HOLD_MS = 2000;
 const LOCK_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44 in the centered progress indicator
 
+// Auto-tracking tunables. Design params from issue #36.
+const GPS_ACCURACY_MAX_M = 30; // above this, force Manual mode
+const APPROACH_RADIUS_MIN_M = 15;
+const APPROACH_RADIUS_ACCURACY_FACTOR = 1.5;
+const EXIT_INCREASING_FIXES = 2; // consecutive rising-distance fixes that trigger commit
+
+interface ApproachState {
+  marker: number;
+  bestDistM: number;
+  bestCoord: GpsCoord;
+  bestTimestamp: number;
+  increasingCount: number;
+  inZone: boolean;
+}
+
 export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
   const [elapsed, setElapsed] = useState(0);
@@ -42,6 +67,11 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
   const lockHoldRef = useRef<ReturnType<typeof setInterval>>();
   const lockStartRef = useRef<number | null>(null);
+
+  // Auto-tracking state. Kept in a ref so each GPS update reads/writes synchronously
+  // without triggering re-renders per fix.
+  const approachRef = useRef<ApproachState | null>(null);
+  const [approachInZone, setApproachInZone] = useState(false);
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
@@ -88,6 +118,131 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     return () => clearInterval(lockHoldRef.current);
   }, []);
 
+  // Derived: next marker number, its known position, and current mode.
+  const nextMarker = attempt ? attempt.splits.length + 1 : 1;
+  const nextMarkerPos = nextMarker <= MAX_MARKERS ? getMarkerPosition(nextMarker) : null;
+  const gpsAccurate = !!position && position.accuracy <= GPS_ACCURACY_MAX_M;
+  const userForcedManual = !!attempt?.manualOverride;
+  const mode: SplitMode = !userForcedManual && nextMarkerPos && gpsAccurate ? "auto" : "manual";
+
+  const toggleManualOverride = useCallback(() => {
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, manualOverride: !prev.manualOverride };
+      saveActiveHike(updated);
+      return updated;
+    });
+  }, []);
+
+  const handleTag = useCallback(() => {
+    if (!attempt || !isRunning) return;
+    const text = window.prompt("Tag text")?.trim();
+    if (!text) return;
+    const now = Date.now();
+    const tag: HikeTag = {
+      id: crypto.randomUUID(),
+      timestamp: now,
+      elapsed: now - attempt.startTime,
+      text,
+      coords: currentCoord(),
+    };
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, tags: [...(prev.tags ?? []), tag] };
+      saveActiveHike(updated);
+      return updated;
+    });
+  }, [attempt, isRunning, currentCoord]);
+
+  // Reset approach state whenever the target marker changes.
+  useEffect(() => {
+    approachRef.current = null;
+    setApproachInZone(false);
+  }, [nextMarker]);
+
+  const commitSplit = useCallback(
+    (split: Split) => {
+      if (split.coords) recordMarkerGps(split.marker, split.coords);
+      setAttempt((prev) => {
+        if (!prev) return prev;
+        const updated = { ...prev, splits: [...prev.splits, split] };
+        saveActiveHike(updated);
+        return updated;
+      });
+      approachRef.current = null;
+      setApproachInZone(false);
+    },
+    []
+  );
+
+  // Auto-tracking: on each GPS fix, maintain closest-approach for the next marker
+  // and commit when the user exits the approach zone.
+  useEffect(() => {
+    if (!isRunning || !attempt || !position) return;
+    if (nextMarker > MAX_MARKERS) return;
+    if (mode !== "auto" || !nextMarkerPos) {
+      if (approachRef.current) {
+        approachRef.current = null;
+        setApproachInZone(false);
+      }
+      return;
+    }
+
+    const distM = haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
+    const radius = Math.max(APPROACH_RADIUS_MIN_M, position.accuracy * APPROACH_RADIUS_ACCURACY_FACTOR);
+    const coord: GpsCoord = {
+      latitude: position.latitude,
+      longitude: position.longitude,
+      altitude: position.altitude,
+      accuracy: position.accuracy,
+    };
+    const ts = position.timestamp;
+
+    const state = approachRef.current;
+
+    if (distM <= radius) {
+      // In the zone — update best approach.
+      if (!state || state.marker !== nextMarker) {
+        approachRef.current = {
+          marker: nextMarker,
+          bestDistM: distM,
+          bestCoord: coord,
+          bestTimestamp: ts,
+          increasingCount: 0,
+          inZone: true,
+        };
+        setApproachInZone(true);
+      } else {
+        if (distM < state.bestDistM) {
+          state.bestDistM = distM;
+          state.bestCoord = coord;
+          state.bestTimestamp = ts;
+        }
+        state.increasingCount = 0;
+        state.inZone = true;
+        if (!approachInZone) setApproachInZone(true);
+      }
+      return;
+    }
+
+    // Outside the radius.
+    if (!state || state.marker !== nextMarker || !state.inZone) return;
+
+    state.increasingCount += 1;
+    if (state.increasingCount >= EXIT_INCREASING_FIXES) {
+      // Commit the best-approach point as an auto split.
+      const split: Split = {
+        marker: nextMarker,
+        timestamp: state.bestTimestamp,
+        elapsed: state.bestTimestamp - attempt.startTime,
+        elevation: state.bestCoord.altitude ?? undefined,
+        coords: state.bestCoord,
+        mode: "auto",
+      };
+      commitSplit(split);
+    }
+  }, [position, isRunning, attempt, nextMarker, nextMarkerPos, mode, commitSplit, approachInZone]);
+
   const currentCoord = useCallback((): GpsCoord | undefined => {
     if (!position) return undefined;
     return {
@@ -104,39 +259,67 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     saveActiveHike(a);
     setElapsed(0);
     setIsRunning(true);
+    // startCoords is captured from the first GPS fix after start — see the effect below.
   }, []);
+
+  // Capture startCoords from the first GPS fix after Start. GPS only starts watching
+  // when isRunning flips to true, so currentCoord() at tap time is stale/null.
+  useEffect(() => {
+    if (!isRunning || !attempt || attempt.startCoords || !position) return;
+    const coord: GpsCoord = {
+      latitude: position.latitude,
+      longitude: position.longitude,
+      altitude: position.altitude,
+      accuracy: position.accuracy,
+    };
+    setAttempt((prev) => {
+      if (!prev || prev.startCoords) return prev;
+      const updated = { ...prev, startCoords: coord };
+      saveActiveHike(updated);
+      return updated;
+    });
+  }, [isRunning, attempt, position]);
 
   const handleMarker = useCallback(() => {
     if (!attempt || !isRunning) return;
-    const nextMarker = attempt.splits.length + 1;
     if (nextMarker > MAX_MARKERS) return;
 
     const now = Date.now();
     const coord = currentCoord();
+
+    // In Manual mode for a marker with no known position, compute a progress
+    // override so the UI doesn't stall at the previous marker's progress.
+    let progressOverride: Split["progressOverride"];
+    if (mode === "manual" && isMarkerMissing(nextMarker)) {
+      let p: MarkerProgress;
+      if (coord && gpsAccurate) {
+        p = snapToMasterTrail(coord.latitude, coord.longitude);
+      } else {
+        p = interpolateMarkerProgress(nextMarker);
+      }
+      progressOverride = {
+        distanceM: p.distanceM,
+        distancePct: p.distancePct,
+        elevation: p.elevation,
+        elevationPct: p.elevationPct,
+      };
+    }
+
     const split: Split = {
       marker: nextMarker,
       timestamp: now,
       elapsed: now - attempt.startTime,
       elevation: position?.altitude ?? undefined,
       coords: coord,
+      mode,
+      progressOverride,
     };
 
-    // Save GPS data for this marker
-    if (coord) {
-      recordMarkerGps(nextMarker, coord);
-    }
-
-    setAttempt((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, splits: [...prev.splits, split] };
-      saveActiveHike(updated);
-      return updated;
-    });
-  }, [attempt, isRunning, position, currentCoord]);
+    commitSplit(split);
+  }, [attempt, isRunning, position, currentCoord, nextMarker, mode, gpsAccurate, commitSplit]);
 
   const handleForgot = useCallback(() => {
     if (!attempt || !isRunning) return;
-    const nextMarker = attempt.splits.length + 1;
     if (nextMarker > MAX_MARKERS) return;
 
     const now = Date.now();
@@ -146,25 +329,23 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       elapsed: now - attempt.startTime,
       elevation: position?.altitude ?? undefined,
       skipped: true,
+      mode: "manual",
       // No coords stored for skipped markers
     };
 
-    setAttempt((prev) => {
-      if (!prev) return prev;
-      const updated = { ...prev, splits: [...prev.splits, split] };
-      saveActiveHike(updated);
-      return updated;
-    });
-  }, [attempt, isRunning, position]);
+    commitSplit(split);
+  }, [attempt, isRunning, position, nextMarker, commitSplit]);
 
   const handleFinish = useCallback(() => {
     if (!attempt) return;
     const now = Date.now();
+    const endCoords = currentCoord();
     const finished: HikeAttempt = {
       ...attempt,
       endTime: now,
       totalTime: now - attempt.startTime,
       completed: true,
+      endCoords: endCoords ?? attempt.endCoords,
     };
     setIsRunning(false);
     const attempts = loadAttempts();
@@ -172,7 +353,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     clearActiveHike();
     setAttempt(null);
     onFinish();
-  }, [attempt, onFinish]);
+  }, [attempt, onFinish, currentCoord]);
 
   // Lock hold: start filling the progress ring; toggle lock after hold duration
   const startLockHold = useCallback(() => {
@@ -197,8 +378,18 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     setLockProgress(0);
   }, []);
 
-  const nextMarker = attempt ? attempt.splits.length + 1 : 1;
-  const markerProgress = getProgressForMarker(attempt ? attempt.splits.length : 0);
+  // Resolve progress from the last split: honour any progressOverride (Manual mode
+   // for missing markers), otherwise fall back to the marker-number lookup.
+  const markerProgress: MarkerProgress = (() => {
+    const lastSplit = attempt && attempt.splits.length > 0 ? attempt.splits[attempt.splits.length - 1] : null;
+    if (lastSplit?.progressOverride) {
+      return {
+        marker: lastSplit.marker,
+        ...lastSplit.progressOverride,
+      };
+    }
+    return getProgressForMarker(attempt ? attempt.splits.length : 0);
+  })();
 
   // Pre-start view
   if (!isRunning && !attempt) {
@@ -241,6 +432,22 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     <div className={`flex flex-col h-full relative${isLocked ? " hike-screen-locked" : ""}`}>
       {/* Timer — sits above the lock overlay so the time stays visible */}
       <div className="flex-none bg-background border-b border-border px-6 py-4 relative z-20">
+        {/* Manual-override toggle — top-left, kept small to avoid thumb reach for right-handed users */}
+        <button
+          onClick={toggleManualOverride}
+          disabled={isLocked}
+          aria-label={userForcedManual ? "Switch to automatic marker logging" : "Force manual marker logging"}
+          className={`absolute left-3 top-3 flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] uppercase tracking-widest font-semibold touch-manipulation select-none border transition-colors ${
+            userForcedManual
+              ? "bg-warning/15 border-warning/40 text-warning"
+              : "bg-muted/60 border-white/[0.06] text-muted-foreground"
+          }`}
+        >
+          <span className={`w-6 h-3 rounded-full relative ${userForcedManual ? "bg-warning/60" : "bg-muted-foreground/30"}`}>
+            <span className={`absolute top-0 w-3 h-3 rounded-full bg-background transition-all ${userForcedManual ? "left-3" : "left-0"}`} />
+          </span>
+          {userForcedManual ? "Manual" : "Auto"}
+        </button>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1 text-center">Elapsed</p>
@@ -315,9 +522,23 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
                 onClick={handleMarker}
                 className="marker-btn-translucent pointer-events-auto w-44 h-44 rounded-full bg-primary/[0.18] border-2 border-primary flex flex-col items-center justify-center gap-1 active:scale-95 transition-transform touch-manipulation select-none"
               >
-                <MapPin className="w-10 h-10 text-primary" />
-                <span className="text-4xl font-bold text-primary">{nextMarker}</span>
-                <span className="text-xs text-muted-foreground">Tap at marker</span>
+                <span className={`text-[10px] uppercase tracking-widest font-semibold ${mode === "auto" ? "text-primary" : "text-warning"}`}>
+                  {mode === "auto" ? "Auto" : "Manual"}
+                </span>
+                <MapPin className="w-8 h-8 text-primary" />
+                {approachInZone && mode === "auto" ? (
+                  <>
+                    <span className="text-xl font-bold text-primary">Approaching</span>
+                    <span className="text-3xl font-bold text-primary leading-none">{nextMarker}</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-4xl font-bold text-primary leading-none">{nextMarker}</span>
+                    <span className="text-xs text-muted-foreground">
+                      {mode === "auto" ? "Auto-log armed" : "Tap at marker"}
+                    </span>
+                  </>
+                )}
               </button>
 
               <button
@@ -384,6 +605,15 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
       {/* Finish + Lock/Unlock row — sits above the overlay */}
       <div className="flex-none px-6 pt-4 pb-4 relative z-20 flex items-center gap-3">
+        {/* Tag button — bottom-left, away from right-handed thumb reach */}
+        <button
+          onClick={isLocked ? undefined : handleTag}
+          disabled={isLocked}
+          aria-label="Add tag"
+          className="w-12 h-12 rounded-full bg-muted flex items-center justify-center touch-manipulation select-none flex-shrink-0 disabled:opacity-40"
+        >
+          <TagIcon className="w-5 h-5 text-muted-foreground" />
+        </button>
         <Button
           onClick={isLocked ? undefined : handleFinish}
           disabled={isLocked}
