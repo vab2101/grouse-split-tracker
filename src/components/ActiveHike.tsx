@@ -433,22 +433,6 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     <div className={`flex flex-col h-full relative${isLocked ? " hike-screen-locked" : ""}`}>
       {/* Timer — sits above the lock overlay so the time stays visible */}
       <div className="flex-none bg-background border-b border-border px-6 py-4 relative z-20">
-        {/* Manual-override toggle — top-left, kept small to avoid thumb reach for right-handed users */}
-        <button
-          onClick={toggleManualOverride}
-          disabled={isLocked}
-          aria-label={userForcedManual ? "Switch to automatic marker logging" : "Force manual marker logging"}
-          className={`absolute left-3 top-3 flex items-center gap-1.5 px-2 py-1 rounded-md text-[10px] uppercase tracking-widest font-semibold touch-manipulation select-none border transition-colors ${
-            userForcedManual
-              ? "bg-warning/15 border-warning/40 text-warning"
-              : "bg-muted/60 border-white/[0.06] text-muted-foreground"
-          }`}
-        >
-          <span className={`w-6 h-3 rounded-full relative ${userForcedManual ? "bg-warning/60" : "bg-muted-foreground/30"}`}>
-            <span className={`absolute top-0 w-3 h-3 rounded-full bg-background transition-all ${userForcedManual ? "left-3" : "left-0"}`} />
-          </span>
-          {userForcedManual ? "Manual" : "Auto"}
-        </button>
         <div className="flex items-start justify-between">
           <div className="flex-1">
             <p className="text-xs uppercase tracking-widest text-muted-foreground mb-1 text-center">Elapsed</p>
@@ -515,6 +499,33 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       <div className="flex-1 relative overflow-hidden bg-background">
         <MapBackground progress={markerProgress.distancePct / 100} />
         <div className="map-vignette" />
+
+        {/* Manual-override toggle — top-left of map area, away from right-thumb reach */}
+        <button
+          onClick={toggleManualOverride}
+          disabled={isLocked}
+          aria-label={userForcedManual ? "Switch to automatic marker logging" : "Force manual marker logging"}
+          className={`absolute left-3 top-3 z-[5] flex items-center gap-2 px-3 py-2 rounded-lg text-xs uppercase tracking-widest font-semibold touch-manipulation select-none border backdrop-blur-sm transition-colors ${
+            userForcedManual
+              ? "bg-warning/20 border-warning/50 text-warning"
+              : "bg-background/70 border-white/[0.08] text-muted-foreground"
+          }`}
+        >
+          <span className={`w-8 h-4 rounded-full relative transition-colors ${userForcedManual ? "bg-warning/70" : "bg-muted-foreground/40"}`}>
+            <span className={`absolute top-0.5 w-3 h-3 rounded-full bg-background shadow transition-all ${userForcedManual ? "left-[18px]" : "left-0.5"}`} />
+          </span>
+          {userForcedManual ? "Manual" : "Auto"}
+        </button>
+
+        {/* Tag button — bottom-left of map area */}
+        <button
+          onClick={isLocked ? undefined : handleTag}
+          disabled={isLocked}
+          aria-label="Add tag"
+          className="absolute left-3 bottom-3 z-[5] w-12 h-12 rounded-full bg-background/70 backdrop-blur-sm border border-white/[0.08] flex items-center justify-center touch-manipulation select-none disabled:opacity-40"
+        >
+          <TagIcon className="w-5 h-5 text-muted-foreground" />
+        </button>
 
         <div className="absolute inset-0 flex flex-col items-center justify-center gap-4 px-6 pointer-events-none">
           {nextMarker <= MAX_MARKERS ? (
@@ -606,15 +617,6 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
       {/* Finish + Lock/Unlock row — sits above the overlay */}
       <div className="flex-none px-6 pt-4 pb-4 relative z-20 flex items-center gap-3">
-        {/* Tag button — bottom-left, away from right-handed thumb reach */}
-        <button
-          onClick={isLocked ? undefined : handleTag}
-          disabled={isLocked}
-          aria-label="Add tag"
-          className="w-12 h-12 rounded-full bg-muted flex items-center justify-center touch-manipulation select-none flex-shrink-0 disabled:opacity-40"
-        >
-          <TagIcon className="w-5 h-5 text-muted-foreground" />
-        </button>
         <Button
           onClick={isLocked ? undefined : handleFinish}
           disabled={isLocked}
