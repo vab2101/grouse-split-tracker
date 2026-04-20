@@ -20,6 +20,86 @@ Track split times at numbered trail markers. Tap button as you pass each marker.
 - See best and average times per segment across all hikes.
 - Export any hike to CSV (marker, time, coords, accuracy, logging mode, tags).
 
+## Marker button — what it shows and why
+
+The large marker button in the map area has three pieces of text. All three are driven by the same underlying state machine — they just surface different parts of it.
+
+```
+┌─────────────────────────┐
+│    [ Auto | Manual ]    │  ← mode pill (top)
+│           📍            │
+│           25            │  ← next marker number (or "Approaching 25")
+│   ~18 m to marker       │  ← live hint (bottom)
+└─────────────────────────┘
+```
+
+### The mode pill
+
+Either `Auto` or `Manual`. Mode is recomputed on every render from three inputs:
+
+| Condition | Forces mode to `Manual`? |
+|---|---|
+| User flipped the top-left toggle | yes |
+| Next marker has no known GPS position (31, 33, 44, 45) | yes |
+| No GPS fix, or `accuracy > 30 m` | yes |
+| Otherwise | `Auto` |
+
+The mode at commit time is saved on the split and exported in the CSV `Logging Mode` column.
+
+### The bottom hint
+
+Three possible values, all carrying the same reassurance: *"here is what will happen if you do nothing / tap now."*
+
+| Hint | When | Meaning |
+|---|---|---|
+| `~X m to marker` | `Auto`, not yet inside approach zone | GPS is being watched; X is distance to the next marker. App will auto-commit when you walk past it. |
+| `Approaching n` *(replaces the number)* | `Auto`, inside approach zone | Closest-approach tracker is running. App will commit the best fix as soon as you exit the zone (two consecutive rising-distance fixes). |
+| `Tap at marker` | `Manual` | App is not watching. You must tap the button when you pass the marker. |
+
+### How `~X m to marker` is computed
+
+The preferred value is **along-trail distance**: snap the live GPS fix to the nearest master-trail waypoint, get its cumulative trail distance, and subtract from the marker's known trail distance.
+
+```ts
+straightM  = haversine(GPS, marker.lat/lng)
+snappedM   = snapToMasterTrail(GPS).distanceM
+trailDelta = marker.distanceM − snappedM
+return trailDelta > 0 ? trailDelta : straightM
+```
+
+The haversine fallback kicks in when `trailDelta` is negative — i.e. the snap lands on a trail vertex *further along the trail than the marker*. That happens on switchbacks and near switchbacks where the closest-by-metres vertex may actually be on a later leg of the trail:
+
+```
+Trail vertices and cumulative distance:
+  … ── v102(1500m) ── v103(1520m) ── [MARKER 25 @ 1540m] ── v104(1560m) ── v105(1580m) ── …
+
+User GPS near marker 25 snaps to v105 (1580 m):
+  trailDelta = 1540 − 1580 = −40 m        ← meaningless as "distance to go"
+  straightM  = haversine(GPS, marker 25) = 18 m
+  displayed  = ~18 m to marker            ← always ≥ 0, safe bound
+```
+
+The same fallback covers the marker-past-GPS case (user is genuinely a few metres past the marker but the approach-zone commit hasn't fired yet) and the off-trail-detour case.
+
+### The approach zone
+
+When mode is `Auto` and the live GPS fix is within the zone around the next marker, the button label changes to `Approaching n` and the app keeps the closest `(trackpoint, timestamp)` seen so far. When you walk out of the zone (two consecutive rising-distance fixes), that best-approach point is committed as the split — equivalent to a button press at that moment. Manual tap at any time (including inside the zone) wins and commits immediately at the live GPS position.
+
+```
+Fix 1: dist=12m → enter zone, best=12m
+Fix 2: dist= 8m → best=8m, increasing=0
+Fix 3: dist= 5m → best=5m (closest)
+Fix 4: dist= 7m → outside radius, increasing=1
+Fix 5: dist=11m → increasing=2 → COMMIT at Fix 3's (coord, timestamp)
+```
+
+Tunables (see top of `src/components/ActiveHike.tsx`):
+
+- `GPS_ACCURACY_MAX_M = 30` — Auto falls back to Manual above this accuracy
+- `APPROACH_RADIUS_MIN_M = 15` — floor on the approach-zone radius
+- `APPROACH_RADIUS_ACCURACY_FACTOR = 1.5` — radius = `max(15 m, accuracy × 1.5)`
+- `EXIT_INCREASING_FIXES = 2` — consecutive rising-distance fixes to trigger commit
+
 ## Architecture
 
 Single-page React app. No backend. Everything lives in the browser.
