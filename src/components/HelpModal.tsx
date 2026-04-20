@@ -134,6 +134,16 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           </section>
 
           {/* Build info */}
+          <section className="border-t border-border pt-3 text-xs text-muted-foreground">
+            <p className="mb-2">
+              This app uses{" "}
+              <span className="text-foreground font-medium">GoatCounter</span>{" "}
+              for basic, privacy-preserving usage counting — no cookies, no
+              fingerprinting, no personal data. Only two events are counted:
+              page loads and hike starts.
+            </p>
+          </section>
+
           <section className="border-t border-border pt-3 text-xs text-muted-foreground space-y-0.5">
             <div className="flex justify-between">
               <span>Version</span>
