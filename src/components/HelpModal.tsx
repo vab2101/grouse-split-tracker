@@ -77,8 +77,10 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <h3 className="font-semibold mb-1.5">Features</h3>
             <ul className="space-y-1 text-muted-foreground list-disc list-inside">
               <li>
-                <strong className="text-foreground">Forgot a marker?</strong> Tap the{" "}
-                <strong className="text-foreground">Forgot</strong> button to log it retroactively.
+                <strong className="text-foreground">Missed a marker?</strong> Tap{" "}
+                <strong className="text-foreground">Forgot marker N</strong> to skip past it and keep
+                the app in sync. The current time is recorded but no GPS
+                position is saved for that marker.
               </li>
               <li>
                 <strong className="text-foreground">Tags.</strong> Tap the tag button to drop a
@@ -119,9 +121,10 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
                 experience.
               </li>
               <li>
-                If Auto mode fires a few metres early on a switchback, tap the
-                button immediately to override and commit at your actual
-                position.
+                When the button shows <strong className="text-foreground">Approaching N</strong>, you
+                can tap it to commit immediately at your live GPS position
+                instead of waiting for the auto zone-exit. Once auto has
+                already fired and the marker advances, there is no undo.
               </li>
               <li>
                 Export a CSV after important hikes — localStorage can be
