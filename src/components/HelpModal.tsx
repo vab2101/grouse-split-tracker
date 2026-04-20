@@ -29,7 +29,9 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <p className="text-muted-foreground">
             Track your split times at each numbered marker on the BCMC trail —
             50 markers over 2.52 km and 796 m of elevation gain. All data stays
-            on your device. No account required.
+            on your device. No account required. The app is designed to work
+            offline once loaded — install it to your home screen for the best
+            experience on trail.
           </p>
 
           {/* Getting started */}
@@ -117,8 +119,7 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
               <li>Let GPS settle to a green dot before tapping START.</li>
               <li>
                 The screen stays on automatically during an active hike (wake
-                lock). Install to your home screen for the best offline
-                experience.
+                lock).
               </li>
               <li>
                 When the button shows <strong className="text-foreground">Approaching N</strong>, you
