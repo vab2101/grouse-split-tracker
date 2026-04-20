@@ -126,6 +126,20 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
   const userForcedManual = !!attempt?.manualOverride;
   const mode: SplitMode = !userForcedManual && nextMarkerPos && gpsAccurate ? "auto" : "manual";
 
+  // Live distance to the next marker, shown under the marker number while Auto is armed.
+  // Prefer along-trail distance (snap current GPS to master trail, subtract from the
+  // marker's known trail distance). Fall back to great-circle haversine when the snap
+  // says we're past the marker (negative delta).
+  const distanceToNextMarkerM: number | null = (() => {
+    if (mode !== "auto" || !nextMarkerPos || !position) return null;
+    const nextRec = getProgressForMarker(nextMarker);
+    const straightM = haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
+    if (nextRec.marker !== nextMarker) return straightM;
+    const snappedM = snapToMasterTrail(position.latitude, position.longitude).distanceM;
+    const trailDeltaM = nextRec.distanceM - snappedM;
+    return trailDeltaM > 0 ? trailDeltaM : straightM;
+  })();
+
   const toggleManualOverride = useCallback(() => {
     setAttempt((prev) => {
       if (!prev) return prev;
@@ -535,8 +549,12 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
                 ) : (
                   <>
                     <span className="text-4xl font-bold text-primary leading-none">{nextMarker}</span>
-                    <span className="text-xs text-muted-foreground">
-                      {mode === "auto" ? "Auto-log armed" : "Tap at marker"}
+                    <span className="text-xs text-muted-foreground min-h-[1rem]">
+                      {mode === "auto"
+                        ? distanceToNextMarkerM != null
+                          ? `~${Math.round(distanceToNextMarkerM)} m to marker`
+                          : "\u00A0"
+                        : "Tap at marker"}
                     </span>
                   </>
                 )}
