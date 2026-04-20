@@ -27,11 +27,28 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
         <div className="space-y-4 text-sm">
           {/* Use case */}
           <p className="text-muted-foreground">
-            Track your split times at each numbered marker on the BCMC trail —
-            50 markers over 2.52 km and 796 m of elevation gain. All data stays
-            on your device. No account required. The app is designed to work
-            offline once loaded — install it to your home screen for the best
-            experience on trail.
+            Human Intro:
+            This is a vibe-coded app primarily designed for my specific needs
+            hiking the Grind and the BCMC. I wanted something free, lightweight,
+            and able to track split times between markers so I can figure out how
+            to get my Grind time under an hour.
+
+            I've been pretty hands-off with the code but guided UI and behaviour
+            from hiking the BCMC and iterating the app on my iPhone 15 Pro.
+            
+            This is a website that serves up a big Javascript file that runs locally
+            on your phone. All data stays on-device. There are no accounts, no social,
+            no Google/Meta/Big Brother analytics, no cookies. I'm using <a href="https://www.goatcounter.com">Goatcounter</a> for
+            a privacy-preserving usage counter that increments once per Start button push.
+            The app is designed to work offline once loaded, since coverage can be spotty
+            Install it to your home screen for the best experience on trail. This tells
+            iOS not to be too aggressive in killing the app or deleting its data, like
+            it would be if you ran it inside a browser.
+
+            That's it for the human part! The rest of this thing is AI, except for the
+            trail markers, which I manually logged.
+
+            I will add the Grind once it opens for the 2026 season.
           </p>
 
           {/* Getting started */}
