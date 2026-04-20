@@ -27,9 +27,28 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
         <div className="space-y-4 text-sm">
           {/* Use case */}
           <p className="text-muted-foreground">
-            Track your split times at each numbered marker on the BCMC trail —
-            50 markers over 2.52 km and 796 m of elevation gain. All data stays
-            on your device. No account required.
+            Human Intro:
+            This is a vibe-coded app primarily designed for my specific needs
+            hiking the Grind and the BCMC. I wanted something free, lightweight,
+            and able to track split times between markers so I can figure out how
+            to get my Grind time under an hour.
+
+            I've been pretty hands-off with the code but guided UI and behaviour
+            from hiking the BCMC and iterating the app on my iPhone 15 Pro.
+            
+            This is a website that serves up a big Javascript file that runs locally
+            on your phone. All data stays on-device. There are no accounts, no social,
+            no Google/Meta/Big Brother analytics, no cookies. I'm using <a href="https://www.goatcounter.com">Goatcounter</a> for
+            a privacy-preserving usage counter that increments once per Start button push.
+            The app is designed to work offline once loaded, since coverage can be spotty
+            Install it to your home screen for the best experience on trail. This tells
+            iOS not to be too aggressive in killing the app or deleting its data, like
+            it would be if you ran it inside a browser.
+
+            That's it for the human part! The rest of this thing is AI, except for the
+            trail markers, which I manually logged.
+
+            I will add the Grind once it opens for the 2026 season.
           </p>
 
           {/* Getting started */}
@@ -77,8 +96,10 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             <h3 className="font-semibold mb-1.5">Features</h3>
             <ul className="space-y-1 text-muted-foreground list-disc list-inside">
               <li>
-                <strong className="text-foreground">Forgot a marker?</strong> Tap the{" "}
-                <strong className="text-foreground">Forgot</strong> button to log it retroactively.
+                <strong className="text-foreground">Missed a marker?</strong> Tap{" "}
+                <strong className="text-foreground">Forgot marker N</strong> to skip past it and keep
+                the app in sync. The current time is recorded but no GPS
+                position is saved for that marker.
               </li>
               <li>
                 <strong className="text-foreground">Tags.</strong> Tap the tag button to drop a
@@ -115,13 +136,13 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
               <li>Let GPS settle to a green dot before tapping START.</li>
               <li>
                 The screen stays on automatically during an active hike (wake
-                lock). Install to your home screen for the best offline
-                experience.
+                lock).
               </li>
               <li>
-                If Auto mode fires a few metres early on a switchback, tap the
-                button immediately to override and commit at your actual
-                position.
+                When the button shows <strong className="text-foreground">Approaching N</strong>, you
+                can tap it to commit immediately at your live GPS position
+                instead of waiting for the auto zone-exit. Once auto has
+                already fired and the marker advances, there is no undo.
               </li>
               <li>
                 Export a CSV after important hikes — localStorage can be
@@ -131,6 +152,16 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           </section>
 
           {/* Build info */}
+          <section className="border-t border-border pt-3 text-xs text-muted-foreground">
+            <p className="mb-2">
+              This app uses{" "}
+              <span className="text-foreground font-medium">GoatCounter</span>{" "}
+              for basic, privacy-preserving usage counting — no cookies, no
+              fingerprinting, no personal data. Only two events are counted:
+              page loads and hike starts.
+            </p>
+          </section>
+
           <section className="border-t border-border pt-3 text-xs text-muted-foreground space-y-0.5">
             <div className="flex justify-between">
               <span>Version</span>

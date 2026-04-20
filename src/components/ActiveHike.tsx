@@ -274,6 +274,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     saveActiveHike(a);
     setElapsed(0);
     setIsRunning(true);
+    window.goatcounter?.count({ path: "hike-start", title: "Hike Started", event: true });
     // startCoords is captured from the first GPS fix after start — see the effect below.
   }, []);
 
