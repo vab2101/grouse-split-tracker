@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
-import { Mountain, History, Play, HelpCircle } from "lucide-react";
+import { Mountain, History, Play, HelpCircle, Tag } from "lucide-react";
 import ActiveHike from "@/components/ActiveHike";
 import HikeHistory from "@/components/HikeHistory";
 import HelpModal from "@/components/HelpModal";
+import MarkerCollector from "@/components/MarkerCollector";
 import { loadAttempts, HikeAttempt } from "@/lib/hike-store";
 
 type Tab = "track" | "history";
@@ -12,6 +13,7 @@ export default function Index() {
   const [attempts, setAttempts] = useState<HikeAttempt[]>(() => loadAttempts());
   const [hikeActive, setHikeActive] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [markerCollectorOpen, setMarkerCollectorOpen] = useState(false);
 
   useEffect(() => {
     screen.orientation?.lock?.("portrait")?.catch(() => {});
@@ -29,16 +31,30 @@ export default function Index() {
 
   return (
     <div className="h-screen flex flex-col max-w-md mx-auto relative">
-      {/* Help button — always visible top-left */}
-      <button
-        onClick={() => setHelpOpen(true)}
-        className="absolute top-2 left-2 z-50 w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
-        aria-label="Help"
-      >
-        <HelpCircle className="w-4 h-4" />
-      </button>
+      {/* Help & Marker Collector buttons — always visible top */}
+      <div className="absolute top-2 left-2 right-2 z-50 flex gap-2">
+        <button
+          onClick={() => setMarkerCollectorOpen(true)}
+          className="w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
+          aria-label="Tag trail markers"
+          title="Tag trail markers"
+        >
+          <Tag className="w-4 h-4" />
+        </button>
+        <div className="flex-1" />
+        <button
+          onClick={() => setHelpOpen(true)}
+          className="w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
+          aria-label="Help"
+        >
+          <HelpCircle className="w-4 h-4" />
+        </button>
+      </div>
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
+      {markerCollectorOpen && (
+        <MarkerCollector onClose={() => setMarkerCollectorOpen(false)} />
+      )}
 
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
