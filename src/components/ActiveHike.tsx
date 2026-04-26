@@ -21,7 +21,7 @@ import {
   clearActiveHike,
   GpsCoord,
 } from "@/lib/hike-store";
-import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock, Tag as TagIcon } from "lucide-react";
+import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock, Tag as TagIcon, HelpCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   getProgressForMarker,
@@ -38,6 +38,7 @@ import MapBackground from "@/components/MapBackground";
 interface ActiveHikeProps {
   onFinish: () => void;
   onActiveChange?: (active: boolean) => void;
+  onHelpOpen?: () => void;
 }
 
 const LOCK_HOLD_MS = 1000;
@@ -59,12 +60,14 @@ interface ApproachState {
   inZone: boolean;
 }
 
-export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps) {
+export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
   const [elapsed, setElapsed] = useState(0);
   const [isRunning, setIsRunning] = useState(() => loadActiveHike() !== null);
   const [isLocked, setIsLocked] = useState(false);
   const [lockProgress, setLockProgress] = useState(0);
+  const [startReady, setStartReady] = useState(false);
+  const [foregroundCount, setForegroundCount] = useState(0);
 
   const lockHoldRef = useRef<ReturnType<typeof setInterval>>();
   const lockStartRef = useRef<number | null>(null);
@@ -76,7 +79,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
-  const { position, error: gpsError } = useGps(isRunning);
+  const { position, error: gpsError } = useGps(isRunning || startReady);
   useWakeLock(isRunning);
   const intervalRef = useRef<ReturnType<typeof setInterval>>();
 
@@ -86,6 +89,16 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     const handler = (e: BeforeUnloadEvent) => { e.preventDefault(); };
     window.addEventListener("beforeunload", handler);
     return () => window.removeEventListener("beforeunload", handler);
+  }, [isRunning]);
+
+  // Increment foregroundCount when app returns from background to trigger auto-advance.
+  useEffect(() => {
+    if (!isRunning) return;
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") setForegroundCount((c) => c + 1);
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => document.removeEventListener("visibilitychange", handleVisibility);
   }, [isRunning]);
 
   // Timer
@@ -268,6 +281,51 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
     }
   }, [position, isRunning, attempt, nextMarker, nextMarkerPos, mode, commitSplit, approachInZone]);
 
+  // Auto-advance: when stuck at a missing marker with accurate GPS, find the closest
+  // upcoming known marker and auto-skip to it. Triggered on GPS fixes, GPS accuracy
+  // recovery, and app returning to foreground.
+  useEffect(() => {
+    if (!isRunning || !attempt || !position || !gpsAccurate || userForcedManual) return;
+    if (nextMarker > MAX_MARKERS) return;
+    if (!isMarkerMissing(nextMarker)) return;
+
+    let closestMarker = -1;
+    let closestDist = Infinity;
+    for (let m = nextMarker; m <= MAX_MARKERS; m++) {
+      const pos = getMarkerPosition(m);
+      if (!pos) continue;
+      const dist = haversineM(position.latitude, position.longitude, pos.lat, pos.lng);
+      if (dist < closestDist) {
+        closestDist = dist;
+        closestMarker = m;
+      }
+    }
+
+    if (closestMarker <= nextMarker) return;
+
+    const now = Date.now();
+    const newSplits: Split[] = [];
+    for (let m = nextMarker; m < closestMarker; m++) {
+      newSplits.push({
+        marker: m,
+        timestamp: now,
+        elapsed: now - attempt.startTime,
+        elevation: position.altitude ?? undefined,
+        skipped: true,
+        mode: "manual",
+      });
+    }
+
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const updated = { ...prev, splits: [...prev.splits, ...newSplits] };
+      saveActiveHike(updated);
+      return updated;
+    });
+    approachRef.current = null;
+    setApproachInZone(false);
+  }, [position, gpsAccurate, nextMarker, isRunning, attempt, userForcedManual, foregroundCount]);
+
   const handleStart = useCallback(() => {
     const a = createAttempt();
     setAttempt(a);
@@ -364,6 +422,7 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
       endCoords: endCoords ?? attempt.endCoords,
     };
     setIsRunning(false);
+    setStartReady(false);
     const attempts = loadAttempts();
     saveAttempts([finished, ...attempts]);
     clearActiveHike();
@@ -409,6 +468,10 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
 
   // Pre-start view
   if (!isRunning && !attempt) {
+    const gpsColor = position
+      ? position.accuracy <= 10 ? "text-success" : position.accuracy <= 25 ? "text-warning" : "text-destructive"
+      : "text-muted-foreground";
+
     return (
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 px-6">
         <div className="flex flex-col items-center gap-3">
@@ -422,20 +485,57 @@ export default function ActiveHike({ onFinish, onActiveChange }: ActiveHikeProps
           </p>
         </div>
 
-        {gpsError && (
+        {gpsError && startReady && (
           <div className="bg-destructive/10 text-destructive px-4 py-2 rounded-lg text-sm text-center">
             GPS: {gpsError}
           </div>
         )}
 
-        <Button
-          onClick={handleStart}
-          size="lg"
-          className="w-48 h-48 rounded-full text-2xl font-bold gap-3 flex-col"
-        >
-          <Play className="w-10 h-10" />
-          START
-        </Button>
+        {onHelpOpen && (
+          <button
+            onClick={onHelpOpen}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-accent touch-manipulation select-none"
+          >
+            <HelpCircle className="w-4 h-4" />
+            Instructions
+          </button>
+        )}
+
+        {!startReady ? (
+          <Button
+            onClick={() => setStartReady(true)}
+            size="lg"
+            variant="secondary"
+            className="w-48 h-48 rounded-full text-xl font-bold gap-3 flex-col"
+          >
+            <MapPin className="w-10 h-10" />
+            In Parking Lot
+          </Button>
+        ) : (
+          <div className="relative inline-block">
+            <Button
+              onClick={handleStart}
+              size="lg"
+              className="w-48 h-48 rounded-full text-2xl font-bold gap-3 flex-col"
+            >
+              <Play className="w-10 h-10" />
+              START
+            </Button>
+            <div className="absolute top-0 right-0 flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-full px-2 py-0.5 pointer-events-none">
+              {position ? (
+                <>
+                  <Satellite className={`w-3.5 h-3.5 ${gpsColor}`} />
+                  <span className={`text-xs ${gpsColor}`}>{Math.round(position.accuracy)}m</span>
+                </>
+              ) : (
+                <>
+                  <Satellite className="w-3.5 h-3.5 text-muted-foreground animate-pulse" />
+                  <span className="text-xs text-muted-foreground">No GPS</span>
+                </>
+              )}
+            </div>
+          </div>
+        )}
 
         <p className="text-muted-foreground text-xs text-center max-w-xs">
           Tap marker buttons as you pass each BCMC trail marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.

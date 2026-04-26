@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect } from "react";
-import { Mountain, History, Play, HelpCircle, Tag } from "lucide-react";
+import { History, Play, Tag } from "lucide-react";
 import ActiveHike from "@/components/ActiveHike";
 import HikeHistory from "@/components/HikeHistory";
 import HelpModal from "@/components/HelpModal";
@@ -31,25 +31,19 @@ export default function Index() {
 
   return (
     <div className="h-screen flex flex-col max-w-md mx-auto relative">
-      {/* Help & Marker Collector buttons — always visible top */}
-      <div className="absolute top-2 left-2 right-2 z-50 flex gap-2">
-        <button
-          onClick={() => setMarkerCollectorOpen(true)}
-          className="w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
-          aria-label="Tag trail markers"
-          title="Tag trail markers"
-        >
-          <Tag className="w-4 h-4" />
-        </button>
-        <div className="flex-1" />
-        <button
-          onClick={() => setHelpOpen(true)}
-          className="w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
-          aria-label="Help"
-        >
-          <HelpCircle className="w-4 h-4" />
-        </button>
-      </div>
+      {/* Tag button — only visible on start screen */}
+      {!hikeActive && (
+        <div className="absolute top-2 left-2 z-50">
+          <button
+            onClick={() => setMarkerCollectorOpen(true)}
+            className="w-8 h-8 rounded-full bg-card/80 border border-border flex items-center justify-center text-muted-foreground hover:text-foreground touch-manipulation select-none"
+            aria-label="Tag trail markers"
+            title="Tag trail markers"
+          >
+            <Tag className="w-4 h-4" />
+          </button>
+        </div>
+      )}
 
       <HelpModal open={helpOpen} onOpenChange={setHelpOpen} />
       {markerCollectorOpen && (
@@ -59,7 +53,7 @@ export default function Index() {
       {/* Content */}
       <div className="flex-1 min-h-0 overflow-y-auto">
         {tab === "track" ? (
-          <ActiveHike onFinish={() => { setHikeActive(false); refresh(); setTab("history"); }} onActiveChange={setHikeActive} />
+          <ActiveHike onFinish={() => { setHikeActive(false); refresh(); setTab("history"); }} onActiveChange={setHikeActive} onHelpOpen={() => setHelpOpen(true)} />
         ) : (
           <HikeHistory attempts={attempts} onRefresh={refresh} />
         )}
