@@ -58,6 +58,7 @@ interface ApproachState {
   bestTimestamp: number;
   increasingCount: number;
   inZone: boolean;
+  passed: boolean;
 }
 
 export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: ActiveHikeProps) {
@@ -76,6 +77,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
   // without triggering re-renders per fix.
   const approachRef = useRef<ApproachState | null>(null);
   const [approachInZone, setApproachInZone] = useState(false);
+  const [approachPassing, setApproachPassing] = useState(false);
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
@@ -196,6 +198,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
   useEffect(() => {
     approachRef.current = null;
     setApproachInZone(false);
+    setApproachPassing(false);
   }, [nextMarker]);
 
   const commitSplit = useCallback(
@@ -209,6 +212,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
       });
       approachRef.current = null;
       setApproachInZone(false);
+      setApproachPassing(false);
     },
     []
   );
@@ -222,6 +226,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
       if (approachRef.current) {
         approachRef.current = null;
         setApproachInZone(false);
+        setApproachPassing(false);
       }
       return;
     }
@@ -248,6 +253,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
           bestTimestamp: ts,
           increasingCount: 0,
           inZone: true,
+          passed: false,
         };
         setApproachInZone(true);
       } else {
@@ -255,6 +261,9 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
           state.bestDistM = distM;
           state.bestCoord = coord;
           state.bestTimestamp = ts;
+        } else if (!state.passed && distM > state.bestDistM) {
+          state.passed = true;
+          setApproachPassing(true);
         }
         state.increasingCount = 0;
         state.inZone = true;
@@ -655,7 +664,9 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
                 <MapPin className="w-8 h-8 text-primary" />
                 {approachInZone && mode === "auto" ? (
                   <>
-                    <span className="text-xl font-bold text-primary">Approaching</span>
+                    <span className="text-xl font-bold text-primary">
+                      {approachPassing ? "Passing" : "Approaching"}
+                    </span>
                     <span className="text-3xl font-bold text-primary leading-none">{nextMarker}</span>
                   </>
                 ) : (
