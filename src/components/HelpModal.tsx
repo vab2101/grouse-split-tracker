@@ -55,10 +55,14 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
           <section>
             <h3 className="font-semibold mb-1.5">Getting started</h3>
             <ol className="space-y-1 text-muted-foreground list-decimal list-inside">
-              <li>Open the app at the trailhead and allow location access.</li>
               <li>
-                Wait for the GPS dot on the map to turn green (fix
-                accurate to &lt;30 m).
+                Open the app and tap{" "}
+                <strong className="text-foreground">In Parking Lot</strong>. This
+                allows location access and starts acquiring a GPS fix.
+              </li>
+              <li>
+                Wait for the GPS badge on the Start button to turn green
+                (accurate to &lt;30 m).
               </li>
               <li>Tap <strong className="text-foreground">START</strong> when you begin hiking.</li>
               <li>
@@ -82,12 +86,17 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
               mode. The app uses <strong className="text-foreground">Auto</strong> when GPS accuracy is
               better than 30 m and the upcoming marker has a known position.
               It arms an approach zone, keeps the closest GPS fix, and commits
-              the split as you walk out. Everything else falls back to{" "}
+              the split as you walk out. The button shows{" "}
+              <strong className="text-foreground">Approaching</strong> while you are closing in, then
+              switches to <strong className="text-foreground">Passing</strong> once you move past the
+              closest point. Everything else falls back to{" "}
               <strong className="text-foreground">Manual</strong> — tap the button when you pass.
             </p>
             <p className="text-muted-foreground mt-1">
-              Markers 31, 33, 44, and 45 have no GPS position in the dataset
-              and always use Manual mode.
+              Markers 31, 33, 44, and 45 have no GPS position in the dataset.
+              When GPS is accurate, the app automatically skips ahead to the
+              nearest upcoming known marker so you stay in sync without
+              tapping anything.
             </p>
           </section>
 
@@ -139,10 +148,11 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
                 lock).
               </li>
               <li>
-                When the button shows <strong className="text-foreground">Approaching N</strong>, you
-                can tap it to commit immediately at your live GPS position
-                instead of waiting for the auto zone-exit. Once auto has
-                already fired and the marker advances, there is no undo.
+                When the button shows <strong className="text-foreground">Approaching N</strong> or{" "}
+                <strong className="text-foreground">Passing N</strong>, you can tap it to commit
+                immediately at your live GPS position instead of waiting for
+                the auto zone-exit. Once auto has already fired and the marker
+                advances, there is no undo.
               </li>
               <li>
                 Export a CSV after important hikes — localStorage can be
