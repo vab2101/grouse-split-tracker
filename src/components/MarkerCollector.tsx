@@ -137,7 +137,7 @@ export default function MarkerCollector({
 
   const handleExport = async () => {
     const csv = exportMarkersAsCSV(tags);
-    const gpx = exportTrailAsGPX();
+    const gpx = exportTrailAsGPX(tags);
 
     const now = new Date().toISOString().split("T")[0];
     downloadFile(csv, `grind-markers-${now}.csv`);
