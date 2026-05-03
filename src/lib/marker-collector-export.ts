@@ -15,7 +15,7 @@ export function exportMarkersAsCSV(tags: MarkerTag[]): string {
   return lines.join("\n");
 }
 
-export function exportTrailAsGPX(): string {
+export function exportTrailAsGPX(tags: MarkerTag[] = []): string {
   const now = new Date().toISOString();
 
   let gpx = `<?xml version="1.0" encoding="UTF-8"?>
@@ -24,7 +24,20 @@ export function exportTrailAsGPX(): string {
     <name>Grouse Grind Trail</name>
     <time>${now}</time>
   </metadata>
-  <trk>
+`;
+
+  const sorted = [...tags].sort((a, b) => a.marker - b.marker);
+  sorted.forEach((tag) => {
+    gpx += `  <wpt lat="${tag.lat.toFixed(7)}" lon="${tag.lng.toFixed(7)}">
+    <ele>${tag.elevation.toFixed(2)}</ele>
+    <time>${new Date(tag.timestamp).toISOString()}</time>
+    <name>Marker ${tag.marker}</name>
+    <desc>accuracy=${tag.accuracy.toFixed(1)}m</desc>
+  </wpt>
+`;
+  });
+
+  gpx += `  <trk>
     <name>Grouse Grind Trail</name>
     <trkseg>
 `;
