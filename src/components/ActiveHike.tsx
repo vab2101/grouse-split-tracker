@@ -6,10 +6,6 @@ import {
   HikeTag,
   Split,
   SplitMode,
-  MAX_MARKERS,
-  TRAIL_DISTANCE_KM,
-  TRAIL_ELEVATION_GAIN,
-  TRAIL_BASE_ELEVATION,
   formatDuration,
   saveAttempts,
   loadAttempts,
@@ -19,6 +15,7 @@ import {
   saveActiveHike,
   loadActiveHike,
   clearActiveHike,
+  attemptTrail,
   GpsCoord,
 } from "@/lib/hike-store";
 import { Play, Square, Flag, Mountain, MapPin, TrendingUp, SkipForward, Satellite, Lock, Unlock, Tag as TagIcon, HelpCircle } from "lucide-react";
@@ -30,8 +27,9 @@ import {
   haversineM,
   snapToMasterTrail,
   interpolateMarkerProgress,
-  MarkerProgress,
-} from "@/lib/trail-markers";
+  type Trail,
+  type MarkerProgress,
+} from "@/lib/trails";
 import TrailProgress from "@/components/TrailProgress";
 import MapBackground from "@/components/MapBackground";
 
@@ -39,6 +37,9 @@ interface ActiveHikeProps {
   onFinish: () => void;
   onActiveChange?: (active: boolean) => void;
   onHelpOpen?: () => void;
+  trail: Trail;
+  /** Rendered between the Instructions button and the In Parking Lot CTA on the pre-start screen. */
+  trailSwitch?: React.ReactNode;
 }
 
 const LOCK_HOLD_MS = 1000;
@@ -61,8 +62,15 @@ interface ApproachState {
   passed: boolean;
 }
 
-export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: ActiveHikeProps) {
+export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail: selectedTrail, trailSwitch }: ActiveHikeProps) {
   const [attempt, setAttempt] = useState<HikeAttempt | null>(() => loadActiveHike());
+  // Once a hike is in progress its own trailId wins (don't switch mid-hike if user
+  // toggles the start-screen switch later).
+  const trail: Trail = attempt ? attemptTrail(attempt) : selectedTrail;
+  const MAX_MARKERS = trail.maxMarkers;
+  const TRAIL_DISTANCE_KM = trail.distanceKm;
+  const TRAIL_ELEVATION_GAIN = trail.elevationGain;
+  const TRAIL_BASE_ELEVATION = trail.baseElevation;
   const [elapsed, setElapsed] = useState(0);
   const [isRunning, setIsRunning] = useState(() => loadActiveHike() !== null);
   const [isLocked, setIsLocked] = useState(false);
@@ -136,7 +144,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
 
   // Derived: next marker number, its known position, and current mode.
   const nextMarker = attempt ? attempt.splits.length + 1 : 1;
-  const nextMarkerPos = nextMarker <= MAX_MARKERS ? getMarkerPosition(nextMarker) : null;
+  const nextMarkerPos = nextMarker <= MAX_MARKERS ? getMarkerPosition(trail, nextMarker) : null;
   const gpsAccurate = !!position && position.accuracy <= GPS_ACCURACY_MAX_M;
   const userForcedManual = !!attempt?.manualOverride;
   const mode: SplitMode = !userForcedManual && nextMarkerPos && gpsAccurate ? "auto" : "manual";
@@ -147,10 +155,10 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
   // says we're past the marker (negative delta).
   const distanceToNextMarkerM: number | null = (() => {
     if (mode !== "auto" || !nextMarkerPos || !position) return null;
-    const nextRec = getProgressForMarker(nextMarker);
+    const nextRec = getProgressForMarker(trail, nextMarker);
     const straightM = haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
     if (nextRec.marker !== nextMarker) return straightM;
-    const snappedM = snapToMasterTrail(position.latitude, position.longitude).distanceM;
+    const snappedM = snapToMasterTrail(trail, position.latitude, position.longitude).distanceM;
     const trailDeltaM = nextRec.distanceM - snappedM;
     return trailDeltaM > 0 ? trailDeltaM : straightM;
   })();
@@ -296,12 +304,12 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
   useEffect(() => {
     if (!isRunning || !attempt || !position || !gpsAccurate || userForcedManual) return;
     if (nextMarker > MAX_MARKERS) return;
-    if (!isMarkerMissing(nextMarker)) return;
+    if (!isMarkerMissing(trail, nextMarker)) return;
 
     let closestMarker = -1;
     let closestDist = Infinity;
     for (let m = nextMarker; m <= MAX_MARKERS; m++) {
-      const pos = getMarkerPosition(m);
+      const pos = getMarkerPosition(trail, m);
       if (!pos) continue;
       const dist = haversineM(position.latitude, position.longitude, pos.lat, pos.lng);
       if (dist < closestDist) {
@@ -336,14 +344,14 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
   }, [position, gpsAccurate, nextMarker, isRunning, attempt, userForcedManual, foregroundCount]);
 
   const handleStart = useCallback(() => {
-    const a = createAttempt();
+    const a = createAttempt(selectedTrail.id);
     setAttempt(a);
     saveActiveHike(a);
     setElapsed(0);
     setIsRunning(true);
     window.goatcounter?.count({ path: "hike-start", title: "Hike Started", event: true });
     // startCoords is captured from the first GPS fix after start — see the effect below.
-  }, []);
+  }, [selectedTrail.id]);
 
   // Capture startCoords from the first GPS fix after Start. GPS only starts watching
   // when isRunning flips to true, so currentCoord() at tap time is stale/null.
@@ -373,12 +381,12 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
     // In Manual mode for a marker with no known position, compute a progress
     // override so the UI doesn't stall at the previous marker's progress.
     let progressOverride: Split["progressOverride"];
-    if (mode === "manual" && isMarkerMissing(nextMarker)) {
+    if (mode === "manual" && isMarkerMissing(trail, nextMarker)) {
       let p: MarkerProgress;
       if (coord && gpsAccurate) {
-        p = snapToMasterTrail(coord.latitude, coord.longitude);
+        p = snapToMasterTrail(trail, coord.latitude, coord.longitude);
       } else {
-        p = interpolateMarkerProgress(nextMarker);
+        p = interpolateMarkerProgress(trail, nextMarker);
       }
       progressOverride = {
         distanceM: p.distanceM,
@@ -472,7 +480,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
         ...lastSplit.progressOverride,
       };
     }
-    return getProgressForMarker(attempt ? attempt.splits.length : 0);
+    return getProgressForMarker(trail, attempt ? attempt.splits.length : 0);
   })();
 
   // Pre-start view
@@ -485,9 +493,9 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
       <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 px-6">
         <div className="flex flex-col items-center gap-3">
           <Mountain className="w-16 h-16 text-primary" />
-          <h1 className="text-3xl font-bold tracking-tight">BCMC Trail</h1>
+          <h1 className="text-3xl font-bold tracking-tight">{selectedTrail.fullName}</h1>
           <p className="text-muted-foreground text-center text-sm">
-            {TRAIL_DISTANCE_KM} km · {TRAIL_ELEVATION_GAIN}m elevation gain
+            {selectedTrail.distanceKm.toFixed(2)} km · {Math.round(selectedTrail.elevationGain)}m elevation gain
           </p>
           <p className="text-muted-foreground text-center text-xs">
             Start at Grouse Grind timer card trailhead scan
@@ -509,6 +517,8 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
             Instructions
           </button>
         )}
+
+        {trailSwitch}
 
         {!startReady ? (
           <Button
@@ -547,7 +557,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
         )}
 
         <p className="text-muted-foreground text-xs text-center max-w-xs">
-          Tap marker buttons as you pass each BCMC trail marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.
+          Tap marker buttons as you pass each {selectedTrail.fullName} marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.
         </p>
       </div>
     );
@@ -584,13 +594,13 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
                   <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
                     <TrendingUp className="w-3.5 h-3.5" />
                     <span>
-                      {Math.round(markerProgress.elevation - TRAIL_BASE_ELEVATION)} m / {TRAIL_ELEVATION_GAIN} m ({markerProgress.elevationPct.toFixed(0)}%)
+                      {Math.round(markerProgress.elevation - TRAIL_BASE_ELEVATION)} m / {Math.round(TRAIL_ELEVATION_GAIN)} m ({markerProgress.elevationPct.toFixed(0)}%)
                     </span>
                   </div>
                   <div className="flex items-center justify-center gap-1 text-muted-foreground text-sm">
                     <MapPin className="w-3.5 h-3.5" />
                     <span>
-                      {(markerProgress.distanceM / 1000).toFixed(2)} km / {TRAIL_DISTANCE_KM} km ({markerProgress.distancePct.toFixed(0)}%)
+                      {(markerProgress.distanceM / 1000).toFixed(2)} km / {TRAIL_DISTANCE_KM.toFixed(2)} km ({markerProgress.distancePct.toFixed(0)}%)
                     </span>
                   </div>
                 </div>
@@ -616,12 +626,12 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen }: Act
 
       {/* Single centered elevation sparkline — replaces the old elev+route pair */}
       <div className="flex-none bg-background border-b border-white/[0.04] relative z-20">
-        <TrailProgress distancePct={markerProgress.distancePct} />
+        <TrailProgress distancePct={markerProgress.distancePct} trail={trail} />
       </div>
 
       {/* Map fills the middle region; marker + forgot buttons are centered over it */}
       <div className="flex-1 relative overflow-hidden bg-background">
-        <MapBackground progress={markerProgress.distancePct / 100} />
+        <MapBackground progress={markerProgress.distancePct / 100} trail={trail} />
         <div className="map-vignette" />
 
         {/* Manual-override toggle — top-left of map area, away from right-thumb reach */}

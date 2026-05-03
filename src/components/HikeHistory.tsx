@@ -1,12 +1,16 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   HikeAttempt,
   loadAttempts,
   saveAttempts,
   formatDuration,
   exportHikesAsCsv,
+  attemptTrailId,
+  loadHistoryFilter,
+  saveHistoryFilter,
 } from "@/lib/hike-store";
-import { Trophy, Calendar, Clock, Trash2, BarChart3, Download, ChevronDown, ChevronUp, Tag as TagIcon } from "lucide-react";
+import { TRAILS, type TrailId } from "@/lib/trails";
+import { Trophy, Calendar, Clock, Trash2, BarChart3, Download, ChevronDown, ChevronUp, Tag as TagIcon, Filter } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -14,20 +18,51 @@ interface HikeHistoryProps {
   onRefresh: () => void;
 }
 
+const ALL_TRAIL_IDS: TrailId[] = ["bcmc", "grind"];
+
 export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
   const [comparing, setComparing] = useState<string[]>([]);
   const [showComparison, setShowComparison] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  const [filter, setFilter] = useState<TrailId[]>(() => loadHistoryFilter());
+
+  useEffect(() => { saveHistoryFilter(filter); }, [filter]);
 
   const completed = attempts.filter((a) => a.completed && a.totalTime);
-  const best = completed.length
-    ? completed.reduce((a, b) => (a.totalTime! < b.totalTime! ? a : b))
-    : null;
+  const visible = completed.filter((a) => filter.includes(attemptTrailId(a)));
+  // Newest first.
+  visible.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  // Per-trail personal best.
+  const bestByTrail = new Map<TrailId, HikeAttempt>();
+  for (const a of completed) {
+    const tid = attemptTrailId(a);
+    const cur = bestByTrail.get(tid);
+    if (!cur || a.totalTime! < cur.totalTime!) bestByTrail.set(tid, a);
+  }
 
   const toggleCompare = (id: string) => {
     setComparing((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : prev.length < 3 ? [...prev, id] : prev
     );
+  };
+
+  const toggleFilter = (id: TrailId) => {
+    setFilter((prev) => {
+      if (prev.includes(id)) {
+        // Don't allow unchecking the last one — keeps something visible.
+        if (prev.length === 1) return prev;
+        return prev.filter((x) => x !== id);
+      }
+      return [...prev, id];
+    });
+    // Drop comparison selections that fall out of view.
+    setComparing((prev) => prev.filter((cid) => {
+      const a = attempts.find((x) => x.id === cid);
+      if (!a) return false;
+      const next = filter.includes(id) ? filter.filter((x) => x !== id) : [...filter, id];
+      return next.includes(attemptTrailId(a));
+    }));
   };
 
   const handleDelete = (id: string) => {
@@ -36,32 +71,30 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
     onRefresh();
   };
 
-  // Segment-time stats per marker across all completed hikes
-  const markerStats = new Map<number, { best: number; totalMs: number; count: number }>();
+  // Per-(trail, marker) segment stats so markers from different trails don't mix.
+  const markerStats = new Map<string, { best: number; totalMs: number; count: number }>();
+  const key = (tid: TrailId, m: number) => `${tid}:${m}`;
   for (const a of completed) {
+    const tid = attemptTrailId(a);
+    const trail = TRAILS[tid];
     for (let i = 0; i < a.splits.length; i++) {
       const s = a.splits[i];
       if (s.skipped) continue;
       const prev = a.splits[i - 1];
       const seg = prev ? s.elapsed - prev.elapsed : s.elapsed;
-      const ex = markerStats.get(s.marker);
-      if (!ex) {
-        markerStats.set(s.marker, { best: seg, totalMs: seg, count: 1 });
-      } else {
-        markerStats.set(s.marker, { best: Math.min(ex.best, seg), totalMs: ex.totalMs + seg, count: ex.count + 1 });
-      }
+      const k = key(tid, s.marker);
+      const ex = markerStats.get(k);
+      if (!ex) markerStats.set(k, { best: seg, totalMs: seg, count: 1 });
+      else markerStats.set(k, { best: Math.min(ex.best, seg), totalMs: ex.totalMs + seg, count: ex.count + 1 });
     }
-    // Finish segment: last marker to end of hike (marker 51)
     if (a.splits.length > 0 && a.totalTime) {
       const lastSplit = a.splits[a.splits.length - 1];
       if (!lastSplit.skipped) {
         const finishSeg = a.totalTime - lastSplit.elapsed;
-        const ex = markerStats.get(51);
-        if (!ex) {
-          markerStats.set(51, { best: finishSeg, totalMs: finishSeg, count: 1 });
-        } else {
-          markerStats.set(51, { best: Math.min(ex.best, finishSeg), totalMs: ex.totalMs + finishSeg, count: ex.count + 1 });
-        }
+        const k = key(tid, trail.finishMarker);
+        const ex = markerStats.get(k);
+        if (!ex) markerStats.set(k, { best: finishSeg, totalMs: finishSeg, count: 1 });
+        else markerStats.set(k, { best: Math.min(ex.best, finishSeg), totalMs: ex.totalMs + finishSeg, count: ex.count + 1 });
       }
     }
   }
@@ -86,46 +119,102 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
       <div className="flex flex-col items-center justify-center py-20 text-muted-foreground gap-3">
         <Clock className="w-12 h-12 opacity-40" />
         <p className="text-sm">No hikes recorded yet</p>
-        <p className="text-xs">Start your first BCMC attempt!</p>
+        <p className="text-xs">Start your first attempt!</p>
       </div>
     );
   }
 
+  // Block compare if selections span multiple trails.
+  const compareTrailIds = new Set(
+    comparing
+      .map((id) => attempts.find((a) => a.id === id))
+      .filter((a): a is HikeAttempt => !!a)
+      .map(attemptTrailId)
+  );
+  const compareMixed = compareTrailIds.size > 1;
+
   return (
     <div className="px-6 py-4">
-      {/* Best time */}
-      {best && (
-        <div className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-6 flex items-center gap-4">
-          <Trophy className="w-8 h-8 text-accent" />
-          <div>
-            <p className="text-xs text-muted-foreground uppercase tracking-widest">Personal Best</p>
-            <p className="text-2xl font-mono-display font-bold text-primary">
-              {formatDuration(best.totalTime!)}
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {new Date(best.date).toLocaleDateString()}
-            </p>
+      {/* Per-trail personal bests */}
+      {ALL_TRAIL_IDS.filter((tid) => filter.includes(tid) && bestByTrail.has(tid)).map((tid) => {
+        const best = bestByTrail.get(tid)!;
+        return (
+          <div
+            key={tid}
+            className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-3 flex items-center gap-4"
+          >
+            <Trophy className="w-8 h-8 text-accent" />
+            <div className="flex-1">
+              <p className="text-xs text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+                <TrailBadge trailId={tid} />
+                Personal Best
+              </p>
+              <p className="text-2xl font-mono-display font-bold text-primary">
+                {formatDuration(best.totalTime!)}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {new Date(best.date).toLocaleDateString()}
+              </p>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })}
+
+      {/* Filter checkboxes */}
+      <div className="mb-4 flex items-center gap-2 flex-wrap">
+        <Filter className="w-3.5 h-3.5 text-muted-foreground" />
+        <span className="text-xs uppercase tracking-widest text-muted-foreground mr-1">Show</span>
+        {ALL_TRAIL_IDS.map((tid) => {
+          const checked = filter.includes(tid);
+          const onlyOne = filter.length === 1 && checked;
+          return (
+            <button
+              key={tid}
+              type="button"
+              onClick={() => toggleFilter(tid)}
+              disabled={onlyOne}
+              aria-pressed={checked}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors touch-manipulation select-none ${
+                checked
+                  ? "bg-primary/15 border-primary/40 text-primary"
+                  : "bg-card border-border text-muted-foreground hover:text-foreground"
+              } ${onlyOne ? "opacity-60 cursor-not-allowed" : ""}`}
+            >
+              <span
+                className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[10px] ${
+                  checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"
+                }`}
+              >
+                {checked && "✓"}
+              </span>
+              {TRAILS[tid].name}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Compare button */}
       {comparing.length >= 2 && (
         <button
-          onClick={() => setShowComparison(true)}
-          className="w-full mb-4 py-2.5 rounded-lg bg-primary text-primary-foreground font-semibold text-sm flex items-center justify-center gap-2"
+          onClick={() => !compareMixed && setShowComparison(true)}
+          disabled={compareMixed}
+          className={`w-full mb-4 py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${
+            compareMixed
+              ? "bg-muted text-muted-foreground cursor-not-allowed"
+              : "bg-primary text-primary-foreground"
+          }`}
         >
           <BarChart3 className="w-4 h-4" />
-          Compare {comparing.length} Hikes
+          {compareMixed ? "Pick hikes from one trail to compare" : `Compare ${comparing.length} Hikes`}
         </button>
       )}
 
       <div className="flex items-center justify-between mb-3">
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          All Attempts ({completed.length})
+          All Attempts ({visible.length}{visible.length !== completed.length ? ` of ${completed.length}` : ""})
         </p>
         <button
-          onClick={() => exportHikesAsCsv(completed)}
+          onClick={() => exportHikesAsCsv(visible)}
           className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
         >
           <Download className="w-3.5 h-3.5" />
@@ -134,8 +223,10 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
       </div>
 
       <div className="space-y-2">
-        {completed.map((a) => {
-          const isBest = a.id === best?.id;
+        {visible.map((a) => {
+          const tid = attemptTrailId(a);
+          const trail = TRAILS[tid];
+          const isBest = a.id === bestByTrail.get(tid)?.id;
           const isSelected = comparing.includes(a.id);
           const isExpanded = expandedId === a.id;
           return (
@@ -145,7 +236,6 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                 isSelected ? "border-primary" : "border-border"
               }`}
             >
-              {/* Card header — tap to expand */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer touch-manipulation select-none"
                 onClick={() => setExpandedId(isExpanded ? null : a.id)}
@@ -163,6 +253,7 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                   </button>
                   <div>
                     <div className="flex items-center gap-2">
+                      <TrailBadge trailId={tid} />
                       <span className="font-mono-display font-bold text-lg">
                         {formatDuration(a.totalTime!)}
                       </span>
@@ -198,10 +289,8 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                 </div>
               </div>
 
-              {/* Expanded splits */}
               {isExpanded && a.splits.length > 0 && (
                 <div className="px-4 pb-4 border-t border-border">
-                  {/* Column headers */}
                   <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 pt-3 pb-1 text-[10px] uppercase tracking-widest text-muted-foreground">
                     <span />
                     <span className="text-right">This</span>
@@ -209,7 +298,6 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                     <span className="text-right">Avg</span>
                   </div>
                   <div className="space-y-0.5">
-                    {/* Start row */}
                     <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs">
                       <span className="w-5 h-5 rounded-full text-[10px] font-bold flex items-center justify-center flex-none bg-primary/20 text-primary">S</span>
                       <span className="col-span-3 text-muted-foreground italic text-[10px]">Start</span>
@@ -244,7 +332,7 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                         const i = row.index;
                         const prevSplit = a.splits[i - 1];
                         const seg = prevSplit ? s.elapsed - prevSplit.elapsed : s.elapsed;
-                        const stats = !s.skipped ? markerStats.get(s.marker) : undefined;
+                        const stats = !s.skipped ? markerStats.get(key(tid, s.marker)) : undefined;
                         const avg = stats ? Math.round(stats.totalMs / stats.count) : undefined;
                         return (
                           <div
@@ -271,11 +359,10 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                         );
                       });
                     })()}
-                    {/* Finish row */}
                     {a.splits.length > 0 && !a.splits[a.splits.length - 1].skipped && (() => {
                       const lastSplit = a.splits[a.splits.length - 1];
                       const finishSeg = a.totalTime! - lastSplit.elapsed;
-                      const stats = markerStats.get(51);
+                      const stats = markerStats.get(key(tid, trail.finishMarker));
                       const avg = stats ? Math.round(stats.totalMs / stats.count) : undefined;
                       return (
                         <div className="grid grid-cols-[1.5rem_1fr_1fr_1fr] gap-x-2 items-center py-1 text-xs">
@@ -298,5 +385,18 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         })}
       </div>
     </div>
+  );
+}
+
+function TrailBadge({ trailId }: { trailId: TrailId }) {
+  const t = TRAILS[trailId];
+  const cls =
+    trailId === "grind"
+      ? "bg-amber-500/15 text-amber-500 border-amber-500/40"
+      : "bg-emerald-500/15 text-emerald-500 border-emerald-500/40";
+  return (
+    <span className={`text-[10px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider border ${cls}`}>
+      {t.name}
+    </span>
   );
 }
