@@ -1,13 +1,9 @@
-// BCMC trail route points from master trail file (GPX + trail markers).
-// Each point: { lat, lng, ele }
+// BCMC trail route points (high-density polyline from Footpath GPX export).
+// This is BCMC trail geometry only — never mixed with Grind data.
 
-export interface GpxPoint {
-  lat: number;
-  lng: number;
-  ele: number;
-}
+import type { GpxPoint } from "./trail-types";
 
-export const TRAIL_ROUTE: GpxPoint[] = [
+export const BCMC_ROUTE: readonly GpxPoint[] = [
   { lat: 49.3711800, lng: -123.0983900, ele: 296.90 },
   { lat: 49.3711200, lng: -123.0982800, ele: 299.20 },
   { lat: 49.3711000, lng: -123.0981700, ele: 301.10 },
@@ -250,3 +246,69 @@ export const TRAIL_ROUTE: GpxPoint[] = [
   { lat: 49.3788800, lng: -123.0833200, ele: 1091.30 },
   { lat: 49.3789700, lng: -123.0833000, ele: 1092.90 },
 ];
+
+// BCMC marker positions (lat/lng/elevation) from bcmc_markers.csv. The 51-marker
+// numbering with gaps at 31/33/44/45 reflects physically missing signs along the
+// BCMC trail. distanceM/distancePct fields are derived at module-load by buildTrail()
+// via projection onto BCMC_ROUTE.
+export const BCMC_RAW_MARKERS: readonly { marker: number; lat: number; lng: number; elevation: number }[] = [
+  { marker:  0, lat: 49.3711800, lng: -123.0983900, elevation:  296.90 },
+  { marker:  1, lat: 49.3706139, lng: -123.0946675, elevation:  351.50 },
+  { marker:  2, lat: 49.3708537, lng: -123.0941840, elevation:  367.60 },
+  { marker:  3, lat: 49.3711047, lng: -123.0937164, elevation:  384.90 },
+  { marker:  4, lat: 49.3714393, lng: -123.0931035, elevation:  407.40 },
+  { marker:  5, lat: 49.3713960, lng: -123.0927432, elevation:  422.30 },
+  { marker:  6, lat: 49.3715279, lng: -123.0924548, elevation:  442.80 },
+  { marker:  7, lat: 49.3718223, lng: -123.0920272, elevation:  466.10 },
+  { marker:  8, lat: 49.3719756, lng: -123.0916232, elevation:  485.50 },
+  { marker:  9, lat: 49.3718193, lng: -123.0911866, elevation:  510.00 },
+  { marker: 10, lat: 49.3719229, lng: -123.0908019, elevation:  525.70 },
+  { marker: 11, lat: 49.3721338, lng: -123.0904371, elevation:  547.60 },
+  { marker: 12, lat: 49.3720595, lng: -123.0899075, elevation:  569.90 },
+  { marker: 13, lat: 49.3718195, lng: -123.0894698, elevation:  597.00 },
+  { marker: 14, lat: 49.3715278, lng: -123.0891189, elevation:  612.00 },
+  { marker: 15, lat: 49.3715618, lng: -123.0886921, elevation:  636.50 },
+  { marker: 16, lat: 49.3714421, lng: -123.0883777, elevation:  650.60 },
+  { marker: 17, lat: 49.3717655, lng: -123.0882237, elevation:  667.60 },
+  { marker: 18, lat: 49.3719952, lng: -123.0876641, elevation:  695.10 },
+  { marker: 19, lat: 49.3717049, lng: -123.0873637, elevation:  707.70 },
+  { marker: 20, lat: 49.3715098, lng: -123.0868588, elevation:  725.80 },
+  { marker: 21, lat: 49.3717481, lng: -123.0866563, elevation:  743.20 },
+  { marker: 22, lat: 49.3720624, lng: -123.0863070, elevation:  759.10 },
+  { marker: 23, lat: 49.3720225, lng: -123.0857770, elevation:  770.10 },
+  { marker: 24, lat: 49.3718588, lng: -123.0851659, elevation:  795.00 },
+  { marker: 25, lat: 49.3719065, lng: -123.0847969, elevation:  811.50 },
+  { marker: 26, lat: 49.3719323, lng: -123.0844409, elevation:  832.40 },
+  { marker: 27, lat: 49.3717640, lng: -123.0839512, elevation:  839.70 },
+  { marker: 28, lat: 49.3719516, lng: -123.0833497, elevation:  860.10 },
+  { marker: 29, lat: 49.3721778, lng: -123.0831412, elevation:  877.00 },
+  { marker: 30, lat: 49.3728169, lng: -123.0831375, elevation:  901.50 },
+  { marker: 32, lat: 49.3733984, lng: -123.0826277, elevation:  924.40 },
+  { marker: 34, lat: 49.3738266, lng: -123.0820119, elevation:  953.30 },
+  { marker: 35, lat: 49.3740879, lng: -123.0815858, elevation:  963.60 },
+  { marker: 36, lat: 49.3744649, lng: -123.0815849, elevation:  982.10 },
+  { marker: 37, lat: 49.3749397, lng: -123.0814228, elevation:  984.80 },
+  { marker: 38, lat: 49.3752023, lng: -123.0813992, elevation: 1007.10 },
+  { marker: 39, lat: 49.3755467, lng: -123.0813049, elevation: 1015.40 },
+  { marker: 40, lat: 49.3759351, lng: -123.0813898, elevation: 1019.00 },
+  { marker: 41, lat: 49.3762689, lng: -123.0815946, elevation: 1026.00 },
+  { marker: 42, lat: 49.3766188, lng: -123.0817550, elevation: 1033.80 },
+  { marker: 43, lat: 49.3770459, lng: -123.0817201, elevation: 1043.30 },
+  { marker: 46, lat: 49.3780026, lng: -123.0825514, elevation: 1058.20 },
+  { marker: 47, lat: 49.3780342, lng: -123.0828873, elevation: 1055.80 },
+  { marker: 48, lat: 49.3783710, lng: -123.0829336, elevation: 1068.40 },
+  { marker: 49, lat: 49.3785606, lng: -123.0831039, elevation: 1076.20 },
+  { marker: 50, lat: 49.3788265, lng: -123.0833036, elevation: 1082.10 },
+  { marker: 51, lat: 49.3789700, lng: -123.0833000, elevation: 1092.90 },
+];
+
+// Per-trail map view transform (tune in /mockup.html, paste back here).
+export const BCMC_TRANSFORM = {
+  shiftX: 0.106,
+  shiftY: -0.0137,
+  extraScale: 0.85,
+  rotateDeg: -70.0,
+};
+
+export const BCMC_CONTOUR_IMAGE = "/bcmc-contours.svg";
+

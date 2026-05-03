@@ -1,107 +1,102 @@
-import { useEffect, useRef, useState } from "react";
-import { TRAIL_ROUTE } from "@/lib/trail-gpx";
-import { CONTOUR_VIEW, SVG_VIEW, project } from "@/lib/trail-bounds";
+import { useEffect, useMemo, useRef, useState } from "react";
+import type { Trail } from "@/lib/trails";
 
 interface MapBackgroundProps {
   /** 0-1 fraction of trail completed; positions the pulsing current-location dot. */
   progress: number;
+  trail: Trail;
 }
 
-// Pre-project full trail to SVG units once
-const FULL_TRAIL_PTS: [number, number][] = TRAIL_ROUTE.map((p) =>
-  project(p.lng, p.lat)
-);
-const FULL_TRAIL_PATH = FULL_TRAIL_PTS.map(
-  ([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`
-).join(" ");
+interface ProjectedTrail {
+  pts: [number, number][];
+  fullPath: string;
+  start: [number, number];
+}
 
-/** SVG path "d" for the completed portion of the trail at a given 0-1 progress. */
-function completedPath(progress: number): string {
+const projectedCache = new WeakMap<Trail, ProjectedTrail>();
+
+function projectedFor(trail: Trail): ProjectedTrail {
+  let p = projectedCache.get(trail);
+  if (p) return p;
+  const pts = trail.route.map((q) => trail.project(q.lng, q.lat));
+  const fullPath = pts
+    .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`)
+    .join(" ");
+  const start = trail.project(trail.route[0].lng, trail.route[0].lat);
+  p = { pts, fullPath, start };
+  projectedCache.set(trail, p);
+  return p;
+}
+
+function completedPath(trail: Trail, progress: number, pts: [number, number][]): string {
   const clamped = Math.max(0, Math.min(1, progress));
   if (clamped <= 0) return "";
-  const idxF = clamped * (TRAIL_ROUTE.length - 1);
+  const idxF = clamped * (trail.route.length - 1);
   const idx = Math.floor(idxF);
   const frac = idxF - idx;
-  const pts = FULL_TRAIL_PTS.slice(0, idx + 1);
-  if (idx < TRAIL_ROUTE.length - 1 && frac > 0) {
-    const a = FULL_TRAIL_PTS[idx];
-    const b = FULL_TRAIL_PTS[idx + 1];
-    pts.push([a[0] + frac * (b[0] - a[0]), a[1] + frac * (b[1] - a[1])]);
+  const sliced: [number, number][] = pts.slice(0, idx + 1);
+  if (idx < trail.route.length - 1 && frac > 0) {
+    const a = pts[idx];
+    const b = pts[idx + 1];
+    sliced.push([a[0] + frac * (b[0] - a[0]), a[1] + frac * (b[1] - a[1])]);
   }
-  return pts
+  return sliced
     .map(([x, y], i) => `${i === 0 ? "M" : "L"}${x.toFixed(2)} ${y.toFixed(2)}`)
     .join(" ");
 }
 
-/** Interpolated current position (in SVG units) for the pulsing dot. */
-function currentPoint(progress: number): [number, number] {
+function currentPoint(trail: Trail, progress: number, pts: [number, number][]): [number, number] {
   const clamped = Math.max(0, Math.min(1, progress));
-  const idxF = clamped * (TRAIL_ROUTE.length - 1);
+  const idxF = clamped * (trail.route.length - 1);
   const idx = Math.floor(idxF);
   const frac = idxF - idx;
-  const a = FULL_TRAIL_PTS[idx];
-  const b = FULL_TRAIL_PTS[Math.min(idx + 1, FULL_TRAIL_PTS.length - 1)];
+  const a = pts[idx];
+  const b = pts[Math.min(idx + 1, pts.length - 1)];
   return [a[0] + frac * (b[0] - a[0]), a[1] + frac * (b[1] - a[1])];
 }
 
-const START_POINT: [number, number] = project(
-  TRAIL_ROUTE[0].lng,
-  TRAIL_ROUTE[0].lat
-);
-
-/**
- * Compute the scale and translation that places the trail large in the
- * viewport while sliding its diagonal body toward the top + right strips
- * of the screen. That keeps the centered marker button and the bottom
- * Finish button sitting over the trail's sparser bottom-left / empty
- * top-left regions.
- *
- * The contour SVG is baked with enough extra geographic padding that the
- * slid scene still covers the full viewport with contour lines.
- */
-function computeTransform(w: number, h: number) {
-  const SHIFT_X    = 0.106 * w;   // positive = right
-  const SHIFT_Y    = -0.0137 * h;   // negative = up
-  const EXTRA_SCALE = 0.8500;
-  const ROTATE_DEG  = -70.00;
-
-  const scale = Math.min(w / SVG_VIEW.width, h / SVG_VIEW.height) * EXTRA_SCALE;
-  const tx    = (w - SVG_VIEW.width  * scale) / 2 + SHIFT_X;
-  const ty    = (h - SVG_VIEW.height * scale) / 2 + SHIFT_Y;
-
-  return { scale, tx, ty, rotateDeg: ROTATE_DEG };
+function computeTransform(trail: Trail, w: number, h: number) {
+  const t = trail.transform;
+  const scale = Math.min(w / trail.svgView.width, h / trail.svgView.height) * t.extraScale;
+  const tx = (w - trail.svgView.width * scale) / 2 + t.shiftX * w;
+  const ty = (h - trail.svgView.height * scale) / 2 + t.shiftY * h;
+  return { scale, tx, ty, rotateDeg: t.rotateDeg };
 }
 
-export default function MapBackground({ progress }: MapBackgroundProps) {
+export default function MapBackground({ progress, trail }: MapBackgroundProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
 
-  // Track the container size so we can recompute the transform on resize
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const update = () =>
-      setSize({ w: el.clientWidth, h: el.clientHeight });
+    const update = () => setSize({ w: el.clientWidth, h: el.clientHeight });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
 
+  const projected = useMemo(() => projectedFor(trail), [trail]);
+
+  // Rotation pivot = centre of this trail's SVG bbox (per-trail coord system).
+  const pivotX = trail.svgView.width / 2;
+  const pivotY = trail.svgView.height / 2;
+
   let scale = 1;
   let tx = 0;
   let ty = 0;
   let rotateDeg = 0;
   if (size) {
-    const t = computeTransform(size.w, size.h);
+    const t = computeTransform(trail, size.w, size.h);
     scale = t.scale;
     tx = t.tx;
     ty = t.ty;
     rotateDeg = t.rotateDeg;
   }
 
-  const donePath = completedPath(progress);
-  const [cx, cy] = currentPoint(progress);
+  const donePath = completedPath(trail, progress, projected.pts);
+  const [cx, cy] = currentPoint(trail, progress, projected.pts);
 
   return (
     <div ref={containerRef} className="absolute inset-0 bg-[#141816]">
@@ -112,21 +107,18 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
           viewBox={`0 0 ${size.w} ${size.h}`}
           className="block"
         >
-          <g transform={`translate(${tx} ${ty}) scale(${scale}) rotate(${rotateDeg} 635.5 509.0)`}>
-            {/* Pre-baked contour lines — extends past the trail bbox so the
-                translated scene still covers the viewport everywhere. */}
+          <g transform={`translate(${tx} ${ty}) scale(${scale}) rotate(${rotateDeg} ${pivotX.toFixed(2)} ${pivotY.toFixed(2)})`}>
             <image
-              href="/bcmc-contours.svg"
-              x={CONTOUR_VIEW.x}
-              y={CONTOUR_VIEW.y}
-              width={CONTOUR_VIEW.width}
-              height={CONTOUR_VIEW.height}
+              href={trail.contourImageUrl}
+              x={trail.contourView.x}
+              y={trail.contourView.y}
+              width={trail.contourView.width}
+              height={trail.contourView.height}
               preserveAspectRatio="none"
             />
 
-            {/* Full trail — soft glow + crisp core */}
             <path
-              d={FULL_TRAIL_PATH}
+              d={projected.fullPath}
               fill="none"
               stroke="hsl(145, 70%, 55%)"
               strokeWidth={12 / scale}
@@ -136,7 +128,7 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
               style={{ filter: `blur(${6 / scale}px)` }}
             />
             <path
-              d={FULL_TRAIL_PATH}
+              d={projected.fullPath}
               fill="none"
               stroke="hsl(145, 85%, 70%)"
               strokeWidth={3.2 / scale}
@@ -145,7 +137,6 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
               strokeLinejoin="round"
             />
 
-            {/* Completed portion — warmer amber overlay */}
             {donePath && (
               <>
                 <path
@@ -169,17 +160,15 @@ export default function MapBackground({ progress }: MapBackgroundProps) {
               </>
             )}
 
-            {/* Start-point dot */}
             <circle
-              cx={START_POINT[0]}
-              cy={START_POINT[1]}
+              cx={projected.start[0]}
+              cy={projected.start[1]}
               r={5 / scale}
               fill="hsla(45, 20%, 95%, 0.9)"
               stroke="hsl(145, 60%, 40%)"
               strokeWidth={2 / scale}
             />
 
-            {/* Pulsing current-position dot */}
             <circle
               cx={cx}
               cy={cy}

@@ -1,6 +1,7 @@
-// BCMC Trail — markers up to ~50 (unconfirmed exact count)
-// Official stats from grousemountain.com/BCMC: 2.4 km, 796m elevation gain
+import { DEFAULT_TRAIL_ID, isTrailId, getTrail, type TrailId } from "./trails";
 
+// Legacy BCMC-only constants kept for any remaining call site that hasn't been migrated to
+// per-trail values yet. New code should read these off the active Trail.
 export const MAX_MARKERS = 50;
 export const TRAIL_DISTANCE_KM = 2.52;
 export const TRAIL_ELEVATION_GAIN = 796;
@@ -56,6 +57,8 @@ export interface HikeAttempt {
   // User override: when true, auto-tracking is disabled regardless of GPS/marker availability.
   manualOverride?: boolean;
   tags?: HikeTag[];
+  // Trail this attempt was logged on. Older attempts without this field are treated as BCMC.
+  trailId?: TrailId;
 }
 
 // Averaged GPS coordinates per marker across all attempts
@@ -76,6 +79,55 @@ export function generateId(): string {
 const STORAGE_KEY = "bcmc-hike-attempts";
 const MARKER_GPS_KEY = "bcmc-marker-gps";
 const ACTIVE_HIKE_KEY = "bcmc-active-hike";
+const ACTIVE_TRAIL_KEY = "active-trail-id";
+const HISTORY_FILTER_KEY = "history-trail-filter";
+
+export function loadActiveTrailId(): TrailId {
+  try {
+    const raw = localStorage.getItem(ACTIVE_TRAIL_KEY);
+    return isTrailId(raw) ? raw : DEFAULT_TRAIL_ID;
+  } catch {
+    return DEFAULT_TRAIL_ID;
+  }
+}
+
+export function saveActiveTrailId(id: TrailId) {
+  try {
+    localStorage.setItem(ACTIVE_TRAIL_KEY, id);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadHistoryFilter(): TrailId[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_FILTER_KEY);
+    if (!raw) return ["bcmc", "grind"];
+    const parsed = JSON.parse(raw) as unknown;
+    if (Array.isArray(parsed)) return parsed.filter(isTrailId);
+    return ["bcmc", "grind"];
+  } catch {
+    return ["bcmc", "grind"];
+  }
+}
+
+export function saveHistoryFilter(ids: TrailId[]) {
+  try {
+    localStorage.setItem(HISTORY_FILTER_KEY, JSON.stringify(ids));
+  } catch {
+    /* ignore */
+  }
+}
+
+/** Read trail id from a possibly-legacy attempt; defaults to BCMC. */
+export function attemptTrailId(a: HikeAttempt): TrailId {
+  return a.trailId ?? "bcmc";
+}
+
+/** Convenience: get the Trail object for an attempt. */
+export function attemptTrail(a: HikeAttempt) {
+  return getTrail(attemptTrailId(a));
+}
 
 export function saveActiveHike(attempt: HikeAttempt | null) {
   if (attempt) {
@@ -156,7 +208,7 @@ export function getAverageMarkerPositions(): Map<number, { lat: number; lng: num
   return map;
 }
 
-export function createAttempt(): HikeAttempt {
+export function createAttempt(trailId: TrailId = DEFAULT_TRAIL_ID): HikeAttempt {
   return {
     id: generateId(),
     date: new Date().toISOString(),
@@ -164,6 +216,7 @@ export function createAttempt(): HikeAttempt {
     splits: [],
     elevationData: [],
     completed: false,
+    trailId,
   };
 }
 
@@ -188,6 +241,7 @@ export function formatSplitDiff(current: number, best?: number): { text: string;
 export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   const headers = [
     "Hike ID",
+    "Trail",
     "Hike Start Date-Time",
     "Trail Marker Number",
     "Trail Number Forgotten",
@@ -209,11 +263,13 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   const rows: string[][] = [];
   for (const attempt of attempts) {
     if (!attempt.completed) continue;
+    const trail = attemptTrail(attempt);
     const startDateTime = new Date(attempt.startTime).toISOString();
     const startGps = formatCoord(attempt.startCoords);
     // Start row (marker 0)
     rows.push([
       attempt.id,
+      trail.name,
       startDateTime,
       "0",
       "false",
@@ -235,6 +291,7 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
       if (ev.kind === "tag") {
         rows.push([
           attempt.id,
+          trail.name,
           startDateTime,
           `Tag: ${ev.tag.text}`,
           "false",
@@ -260,6 +317,7 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
       }
       rows.push([
         attempt.id,
+        trail.name,
         startDateTime,
         String(split.marker),
         forgotten,
@@ -269,13 +327,14 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
         split.mode ?? "",
       ]);
     }
-    // Finish row (marker 51)
+    // Finish row (per-trail finish marker number)
     if (attempt.endTime) {
       const endGps = formatCoord(attempt.endCoords);
       rows.push([
         attempt.id,
+        trail.name,
         startDateTime,
-        "51",
+        String(trail.finishMarker),
         "false",
         new Date(attempt.endTime).toISOString(),
         endGps.pos,
@@ -295,7 +354,7 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `bcmc-hikes-${new Date().toISOString().split("T")[0]}.csv`;
+  link.download = `hikes-${new Date().toISOString().split("T")[0]}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
