@@ -128,6 +128,11 @@ export default function MarkerCollector({
 
     setTags(await getAllMarkerTags());
     setCurrentTag(tag);
+
+    const currentIndex = MARKERS.indexOf(selectedMarker);
+    if (currentIndex !== -1 && currentIndex < MARKERS.length - 1) {
+      setSelectedMarker(MARKERS[currentIndex + 1]);
+    }
   };
 
   const handleExport = async () => {
