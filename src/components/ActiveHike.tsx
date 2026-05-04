@@ -26,6 +26,7 @@ import {
   isMarkerMissing,
   haversineM,
   snapToMasterTrail,
+  alongTrailDistanceToMarker,
   interpolateMarkerProgress,
   type Trail,
   type MarkerProgress,
@@ -46,11 +47,19 @@ const LOCK_HOLD_MS = 1000;
 const UNLOCK_HOLD_MS = 2000;
 const LOCK_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44 in the centered progress indicator
 
-// Auto-tracking tunables. Design params from issue #36.
-const GPS_ACCURACY_MAX_M = 30; // above this, force Manual mode
+// Auto-tracking tunables. Design params from issue #36, with Tier 1 accuracy bumps.
+//
+// Approach detection now uses *along-trail* signed distance (snap GPS to the trail
+// polyline first, subtract from the next marker's stored distanceM) instead of raw
+// great-circle distance. Cross-trail GPS noise no longer inflates the apparent
+// distance to a marker, so the accuracy threshold for Auto mode can be raised.
+const GPS_ACCURACY_MAX_M = 50; // raw accuracy ceiling above which Auto disables
 const APPROACH_RADIUS_MIN_M = 15;
-const APPROACH_RADIUS_ACCURACY_FACTOR = 1.5;
+const APPROACH_RADIUS_ACCURACY_FACTOR = 1.0; // shrunk from 1.5 — along-trail residual is ~1× σ_GPS
 const EXIT_INCREASING_FIXES = 2; // consecutive rising-distance fixes that trigger commit
+
+// Throttle for raw GPS track capture (skips fixes arriving faster than this).
+const GPS_TRACK_MIN_INTERVAL_MS = 800;
 
 interface ApproachState {
   marker: number;
@@ -137,6 +146,35 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
     }
   }, [position, isRunning]);
 
+  // Raw GPS track capture — one row per accepted fix (throttled). Stored on the
+  // attempt for offline analysis + future filter iteration. Throttle dedupes the
+  // burst of identical synthetic fixes the dev SimPanel emits without dropping
+  // legitimate ~1 Hz device updates.
+  useEffect(() => {
+    if (!isRunning || !attempt || !position) return;
+    setAttempt((prev) => {
+      if (!prev) return prev;
+      const t = Date.now() - prev.startTime;
+      const last = prev.gpsTrack && prev.gpsTrack.length > 0
+        ? prev.gpsTrack[prev.gpsTrack.length - 1]
+        : null;
+      if (last && t - last.t < GPS_TRACK_MIN_INTERVAL_MS) return prev;
+      const fix = {
+        t,
+        lat: position.latitude,
+        lng: position.longitude,
+        acc: position.accuracy,
+        alt: position.altitude,
+        altAcc: position.altitudeAccuracy,
+        heading: position.heading,
+        speed: position.speed,
+      };
+      const updated = { ...prev, gpsTrack: [...(prev.gpsTrack ?? []), fix] };
+      saveActiveHike(updated);
+      return updated;
+    });
+  }, [position, isRunning, attempt]);
+
   // Cleanup lock hold timer on unmount
   useEffect(() => {
     return () => clearInterval(lockHoldRef.current);
@@ -150,17 +188,13 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
   const mode: SplitMode = !userForcedManual && nextMarkerPos && gpsAccurate ? "auto" : "manual";
 
   // Live distance to the next marker, shown under the marker number while Auto is armed.
-  // Prefer along-trail distance (snap current GPS to master trail, subtract from the
-  // marker's known trail distance). Fall back to great-circle haversine when the snap
-  // says we're past the marker (negative delta).
+  // Uses along-trail signed distance via snap-to-segment projection, falling back to
+  // straight-line haversine only when the marker has no stored progress in the table.
   const distanceToNextMarkerM: number | null = (() => {
     if (mode !== "auto" || !nextMarkerPos || !position) return null;
-    const nextRec = getProgressForMarker(trail, nextMarker);
-    const straightM = haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
-    if (nextRec.marker !== nextMarker) return straightM;
-    const snappedM = snapToMasterTrail(trail, position.latitude, position.longitude).distanceM;
-    const trailDeltaM = nextRec.distanceM - snappedM;
-    return trailDeltaM > 0 ? trailDeltaM : straightM;
+    const along = alongTrailDistanceToMarker(trail, position.latitude, position.longitude, nextMarker);
+    if (along !== null) return Math.max(0, along);
+    return haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
   })();
 
   const toggleManualOverride = useCallback(() => {
@@ -239,7 +273,13 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
       return;
     }
 
-    const distM = haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
+    // Along-trail signed distance preferred — kills cross-trail GPS noise. Fall back to
+    // raw haversine if the marker has no entry in the trail's distance table (shouldn't
+    // happen for known markers but keeps the code safe).
+    const alongRaw = alongTrailDistanceToMarker(trail, position.latitude, position.longitude, nextMarker);
+    const distM = alongRaw !== null
+      ? Math.abs(alongRaw)
+      : haversineM(position.latitude, position.longitude, nextMarkerPos.lat, nextMarkerPos.lng);
     const radius = Math.max(APPROACH_RADIUS_MIN_M, position.accuracy * APPROACH_RADIUS_ACCURACY_FACTOR);
     const coord: GpsCoord = {
       latitude: position.latitude,

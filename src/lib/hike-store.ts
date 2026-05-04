@@ -42,6 +42,26 @@ export interface HikeTag {
   coords?: GpsCoord; // saved but not exported / not shown in UI
 }
 
+/**
+ * Raw GPS fix captured during a hike. One row per accepted geolocation update
+ * (throttled to ~1 Hz). Stored in HikeAttempt.gpsTrack for offline analysis +
+ * future algorithm iterations (e.g. trail-aware filters, altitude fusion).
+ *
+ * All fields are optional/nullable to mirror what the Geolocation API exposes;
+ * iOS Safari typically returns useful altitude/altitudeAccuracy when the
+ * device has a barometer + GPS lock.
+ */
+export interface GpsFix {
+  t: number;            // ms since hike start
+  lat: number;
+  lng: number;
+  acc: number;          // accuracy radius in metres
+  alt: number | null;   // altitude in metres (often barometric on iOS)
+  altAcc: number | null;
+  heading: number | null;
+  speed: number | null;
+}
+
 export interface HikeAttempt {
   id: string;
   date: string; // ISO string
@@ -59,6 +79,8 @@ export interface HikeAttempt {
   tags?: HikeTag[];
   // Trail this attempt was logged on. Older attempts without this field are treated as BCMC.
   trailId?: TrailId;
+  // Raw GPS fix stream throttled to ~1 Hz. Optional — older hikes won't have it.
+  gpsTrack?: GpsFix[];
 }
 
 // Averaged GPS coordinates per marker across all attempts
@@ -355,6 +377,68 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   const link = document.createElement("a");
   link.href = url;
   link.download = `hikes-${new Date().toISOString().split("T")[0]}.csv`;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * Export the raw GPS track from completed hikes — one row per fix. Supports
+ * offline analysis + future algorithm iteration (snap-to-segment, altitude
+ * fusion, Kalman filtering). Hikes recorded before gpsTrack was introduced
+ * are skipped.
+ */
+export function exportGpsTracksAsCsv(attempts: HikeAttempt[]): void {
+  const headers = [
+    "Hike ID",
+    "Trail",
+    "Hike Start Date-Time",
+    "Fix Elapsed (ms)",
+    "Fix Timestamp",
+    "Latitude",
+    "Longitude",
+    "Accuracy (m)",
+    "Altitude (m)",
+    "Altitude Accuracy (m)",
+    "Heading (deg)",
+    "Speed (m/s)",
+  ];
+  const rows: string[][] = [];
+  for (const attempt of attempts) {
+    if (!attempt.completed) continue;
+    if (!attempt.gpsTrack || attempt.gpsTrack.length === 0) continue;
+    const trail = attemptTrail(attempt);
+    const startDateTime = new Date(attempt.startTime).toISOString();
+    for (const fix of attempt.gpsTrack) {
+      rows.push([
+        attempt.id,
+        trail.name,
+        startDateTime,
+        String(fix.t),
+        new Date(attempt.startTime + fix.t).toISOString(),
+        fix.lat.toFixed(7),
+        fix.lng.toFixed(7),
+        fix.acc.toFixed(1),
+        fix.alt != null ? fix.alt.toFixed(2) : "",
+        fix.altAcc != null ? fix.altAcc.toFixed(2) : "",
+        fix.heading != null ? fix.heading.toFixed(1) : "",
+        fix.speed != null ? fix.speed.toFixed(2) : "",
+      ]);
+    }
+  }
+  if (rows.length === 0) return;
+
+  const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+  const csvContent = [
+    headers.map(escape).join(","),
+    ...rows.map((row) => row.map(escape).join(",")),
+  ].join("\n");
+  const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `hikes-gps-track-${new Date().toISOString().split("T")[0]}.csv`;
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
