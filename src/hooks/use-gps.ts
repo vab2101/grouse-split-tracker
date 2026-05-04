@@ -6,6 +6,8 @@ export interface GpsPosition {
   altitude: number | null;
   accuracy: number;
   altitudeAccuracy: number | null;
+  heading: number | null;
+  speed: number | null;
   timestamp: number;
 }
 
@@ -29,6 +31,8 @@ export function useGps(active: boolean) {
           altitude: pos.coords.altitude,
           accuracy: pos.coords.accuracy,
           altitudeAccuracy: pos.coords.altitudeAccuracy,
+          heading: pos.coords.heading,
+          speed: pos.coords.speed,
           timestamp: pos.timestamp,
         });
         setError(null);

@@ -197,18 +197,92 @@ export function getProgressForMarker(trail: Trail, lastTapped: number): MarkerPr
   };
 }
 
+/**
+ * Project (lat, lng) onto the trail polyline by finding the nearest *segment*
+ * (not just the nearest vertex) and dropping a perpendicular foot. Returns the
+ * foot's along-trail progress + interpolated elevation.
+ *
+ * Uses a local equirectangular projection at the trail's mid-latitude so the
+ * 2D dot-product math is in approximate metres. For the lengths involved
+ * (≤3 km, ≤1 km lat/lng span) the flat-earth error is well under a metre.
+ *
+ * Compared to the previous nearest-vertex snap, segment projection eliminates
+ * the discrete jumps as the runner crosses each vertex and gives a smooth,
+ * monotonic along-trail progress signal — which the auto-tracking approach
+ * detector then uses for distance-to-next-marker calculations.
+ */
 export function snapToMasterTrail(trail: Trail, lat: number, lng: number): MarkerProgress {
+  const route = trail.route;
+  if (route.length === 0) {
+    return {
+      marker: -1,
+      distanceM: 0,
+      distancePct: 0,
+      elevation: trail.baseElevation,
+      elevationPct: 0,
+    };
+  }
+
+  // Equirectangular metre conversion at the trail's centre latitude.
+  const midLat = (trail.geoBounds.minLat + trail.geoBounds.maxLat) / 2;
+  const cosMid = Math.cos((midLat * Math.PI) / 180);
+  const M_PER_DEG_LAT = 111320;
+  const M_PER_DEG_LNG = 111320 * cosMid;
+  const px = lng * M_PER_DEG_LNG;
+  const py = lat * M_PER_DEG_LAT;
+
   let bestIdx = 0;
-  let bestD = Infinity;
-  for (let i = 0; i < trail.route.length; i++) {
-    const d = haversineM(lat, lng, trail.route[i].lat, trail.route[i].lng);
-    if (d < bestD) {
-      bestD = d;
+  let bestT = 0;
+  let bestD2 = Infinity;
+
+  for (let i = 0; i < route.length - 1; i++) {
+    const a = route[i];
+    const b = route[i + 1];
+    const ax = a.lng * M_PER_DEG_LNG;
+    const ay = a.lat * M_PER_DEG_LAT;
+    const bx = b.lng * M_PER_DEG_LNG;
+    const by = b.lat * M_PER_DEG_LAT;
+    const dx = bx - ax;
+    const dy = by - ay;
+    const segLen2 = dx * dx + dy * dy;
+    let t = 0;
+    if (segLen2 > 0) {
+      t = ((px - ax) * dx + (py - ay) * dy) / segLen2;
+      if (t < 0) t = 0;
+      else if (t > 1) t = 1;
+    }
+    const fx = ax + t * dx;
+    const fy = ay + t * dy;
+    const ex = px - fx;
+    const ey = py - fy;
+    const d2 = ex * ex + ey * ey;
+    if (d2 < bestD2) {
+      bestD2 = d2;
       bestIdx = i;
+      bestT = t;
     }
   }
-  const distanceM = trail.masterCumM[bestIdx];
-  const elevation = trail.route[bestIdx].ele;
+
+  // Single-vertex polyline edge case (no segments) — fall back to the lone vertex.
+  if (route.length === 1) {
+    const distanceM = trail.masterCumM[0];
+    const elevation = route[0].ele;
+    return {
+      marker: -1,
+      distanceM,
+      distancePct: trail.totalDistanceM > 0 ? (distanceM / trail.totalDistanceM) * 100 : 0,
+      elevation,
+      elevationPct: trail.elevationGain > 0 ? ((elevation - trail.baseElevation) / trail.elevationGain) * 100 : 0,
+    };
+  }
+
+  const segStart = trail.masterCumM[bestIdx];
+  const segEnd = trail.masterCumM[bestIdx + 1];
+  const distanceM = segStart + bestT * (segEnd - segStart);
+  const elevA = route[bestIdx].ele;
+  const elevB = route[bestIdx + 1].ele;
+  const elevation = elevA + bestT * (elevB - elevA);
+
   return {
     marker: -1,
     distanceM,
@@ -216,6 +290,28 @@ export function snapToMasterTrail(trail: Trail, lat: number, lng: number): Marke
     elevation,
     elevationPct: trail.elevationGain > 0 ? ((elevation - trail.baseElevation) / trail.elevationGain) * 100 : 0,
   };
+}
+
+/**
+ * Signed along-trail distance from a GPS fix to a target marker, in metres.
+ * Positive = the runner hasn't reached the marker yet (marker is ahead).
+ * Negative = the runner has passed the marker (marker is behind).
+ *
+ * Computed as `marker.distanceM - snap(fix).distanceM`. Because snap projects
+ * onto the trail, this value is monotone in along-trail position regardless of
+ * cross-trail GPS noise — much better than great-circle straight-line distance
+ * for approach detection on a noisy trail.
+ */
+export function alongTrailDistanceToMarker(
+  trail: Trail,
+  fixLat: number,
+  fixLng: number,
+  markerNum: number,
+): number | null {
+  const rec = trail.markersByNum.get(markerNum);
+  if (!rec) return null;
+  const snapped = snapToMasterTrail(trail, fixLat, fixLng);
+  return rec.distanceM - snapped.distanceM;
 }
 
 export function interpolateMarkerProgress(trail: Trail, marker: number): MarkerProgress {

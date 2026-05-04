@@ -73,7 +73,7 @@ function fixAtDistance(trail: Trail, cumDistM: number[], totalDistM: number, dis
   };
 }
 
-function makeGeolocationPosition(fix: SimFix): GeolocationPosition {
+function makeGeolocationPosition(fix: SimFix, speed: number | null, heading: number | null): GeolocationPosition {
   const ts = Date.now();
   const coords: GeolocationCoordinates = {
     latitude: fix.lat,
@@ -81,8 +81,8 @@ function makeGeolocationPosition(fix: SimFix): GeolocationPosition {
     altitude: fix.ele,
     accuracy: fix.accuracy,
     altitudeAccuracy: 1,
-    heading: null,
-    speed: null,
+    heading,
+    speed,
     toJSON() {
       return { ...this };
     },
@@ -98,24 +98,31 @@ function makeGeolocationPosition(fix: SimFix): GeolocationPosition {
 
 function tick() {
   if (!state || state.paused) return;
-  const advanceM = (state.options.metersPerSecond * state.options.tickMs) / 1000;
   state.elapsedTrailSec += state.options.tickMs / 1000;
   const distM = Math.min(state.totalDistM, state.options.metersPerSecond * state.elapsedTrailSec);
   const fix = fixAtDistance(state.options.trail, state.cumDistM, state.totalDistM, distM);
   const opts = state.options;
   const isPoor = Math.random() < opts.poorFixProbability;
   fix.accuracy = isPoor ? opts.poorFixAccuracyM : opts.baseAccuracyM;
-  const pos = makeGeolocationPosition(fix);
-  for (const { ok } of state.watchers.values()) {
-    try { ok(pos); } catch { /* ignore */ }
-  }
+
+  // Synthetic heading from delta to next route vertex.
   let idx = 0;
   for (let i = 0; i < state.cumDistM.length - 1; i++) {
     if (state.cumDistM[i] <= distM) idx = i;
   }
+  const route = state.options.trail.route;
+  const nextV = route[Math.min(idx + 1, route.length - 1)];
+  const dLat = nextV.lat - fix.lat;
+  const dLng = nextV.lng - fix.lng;
+  const heading = (Math.atan2(dLng, dLat) * 180) / Math.PI;
+  const headingNorm = ((heading % 360) + 360) % 360;
+  const speed = opts.metersPerSecond;
+
+  const pos = makeGeolocationPosition(fix, speed, headingNorm);
+  for (const { ok } of state.watchers.values()) {
+    try { ok(pos); } catch { /* ignore */ }
+  }
   opts.onProgress?.({ distM, totalM: state.totalDistM, idx, lat: fix.lat, lng: fix.lng, accuracy: fix.accuracy });
-  // Suppress unused warning for advanceM.
-  void advanceM;
 }
 
 export function installGpsSimulator(options: SimOptions) {

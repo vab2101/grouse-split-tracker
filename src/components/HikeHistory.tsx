@@ -5,6 +5,7 @@ import {
   saveAttempts,
   formatDuration,
   exportHikesAsCsv,
+  exportGpsTracksAsCsv,
   attemptTrailId,
   loadHistoryFilter,
   saveHistoryFilter,
@@ -213,13 +214,24 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         <p className="text-xs uppercase tracking-widest text-muted-foreground">
           All Attempts ({visible.length}{visible.length !== completed.length ? ` of ${completed.length}` : ""})
         </p>
-        <button
-          onClick={() => exportHikesAsCsv(visible)}
-          className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
-        >
-          <Download className="w-3.5 h-3.5" />
-          Export CSV
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => exportHikesAsCsv(visible)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+          >
+            <Download className="w-3.5 h-3.5" />
+            Splits CSV
+          </button>
+          <button
+            onClick={() => exportGpsTracksAsCsv(visible)}
+            disabled={!visible.some((a) => a.gpsTrack && a.gpsTrack.length > 0)}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground"
+            title="One row per raw GPS fix (only available on hikes recorded after the gpsTrack feature)"
+          >
+            <Download className="w-3.5 h-3.5" />
+            GPS track CSV
+          </button>
+        </div>
       </div>
 
       <div className="space-y-2">
