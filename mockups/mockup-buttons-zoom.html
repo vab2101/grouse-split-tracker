@@ -1,0 +1,637 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mockup — Button spec sheet (2× zoom)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    :root {
+      --background: hsl(0 0% 0%);
+      --card: hsl(0 0% 4%);
+      --foreground: hsl(45 20% 92%);
+      --muted: hsl(0 0% 10%);
+      --muted-fg: hsl(150 10% 55%);
+      --border: hsl(0 0% 12%);
+      --primary: hsl(145 60% 45%);
+      --accent: hsl(35 80% 55%);
+      --destructive: hsl(0 72% 51%);
+    }
+    * , *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: #0a0c0b;
+      color: var(--foreground);
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    body { padding: 32px 24px 80px; }
+
+    h1 { font-size: 22px; font-weight: 800; margin: 0 0 6px; letter-spacing: -0.01em; }
+    p.sub { color: var(--muted-fg); font-size: 13px; margin: 0 0 32px; max-width: 720px; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 24px;
+      max-width: 1080px;
+      margin: 0 auto;
+    }
+    .row {
+      grid-column: 1 / -1;
+      border-top: 1px solid var(--border);
+      padding-top: 24px;
+      margin-top: 8px;
+      font-size: 11px; font-weight: 800;
+      letter-spacing: 0.18em; text-transform: uppercase;
+      color: var(--muted-fg);
+    }
+
+    .cell {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex; flex-direction: column; gap: 16px;
+    }
+    .cell .h {
+      display: flex; justify-content: space-between; align-items: baseline;
+      border-bottom: 1px dashed var(--border);
+      padding-bottom: 10px;
+    }
+    .cell .h .ttl {
+      font-size: 13px; font-weight: 800; letter-spacing: 0.02em;
+    }
+    .cell .h .tag {
+      font-size: 10px; padding: 3px 8px; border-radius: 999px;
+      letter-spacing: 0.12em; text-transform: uppercase; font-weight: 700;
+    }
+    .tag.before { background: hsla(0,0%,100%,0.05); color: var(--muted-fg); }
+    .tag.after  { background: hsla(145, 60%, 45%, 0.18); color: var(--primary); }
+
+    /* Button viewport — 2× scale via wrapper. Annotation overlay shows tap-target. */
+    .stage {
+      position: relative;
+      min-height: 200px;
+      display: flex; align-items: center; justify-content: center;
+      background:
+        repeating-linear-gradient(0deg, hsla(0,0%,100%,0.02) 0 1px, transparent 1px 16px),
+        repeating-linear-gradient(90deg, hsla(0,0%,100%,0.02) 0 1px, transparent 1px 16px),
+        hsl(0 0% 1%);
+      border-radius: 12px;
+      padding: 32px;
+      overflow: hidden;
+    }
+
+    .target-box {
+      position: relative;
+      display: inline-block;
+    }
+    .target-box::before {
+      content: ""; position: absolute; inset: -8px;
+      border: 1px dashed hsla(35, 80%, 55%, 0.5);
+      border-radius: 14px;
+      pointer-events: none;
+    }
+    .target-box::after {
+      content: attr(data-size);
+      position: absolute;
+      top: -22px; left: -8px;
+      font-size: 9px;
+      color: var(--accent); font-weight: 700;
+      letter-spacing: 0.08em; text-transform: uppercase;
+    }
+
+    .specs {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--muted-fg);
+      line-height: 1.7;
+    }
+    .specs b { color: var(--foreground); }
+    .specs .swatch {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 2px; vertical-align: -1px;
+      margin-right: 4px;
+      border: 1px solid hsla(0,0%,100%,0.1);
+    }
+
+    /* ---------- Button styles to demo ---------- */
+    svg.lucide { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* INSTRUCTIONS — before */
+    .ib-before {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 10px 20px;
+      background: var(--card);
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      border-radius: 12px;
+      font-size: 14px; font-weight: 500;
+      font-family: inherit;
+    }
+    .ib-after {
+      display: inline-flex; align-items: center; gap: 12px;
+      padding: 12px 18px 12px 12px;
+      border-radius: 14px;
+      background: linear-gradient(180deg, hsla(0,0%,8%,0.95), hsla(0,0%,3%,0.95));
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      font-size: 15px; font-weight: 500;
+      box-shadow:
+        inset 0 1px 0 hsla(0,0%,100%,0.06),
+        0 1px 2px rgba(0,0,0,0.4),
+        0 4px 10px rgba(0,0,0,0.25);
+      font-family: inherit;
+    }
+    .ib-after .chip {
+      width: 30px; height: 30px;
+      background: hsla(145, 60%, 45%, 0.12);
+      border: 1px solid hsla(145, 60%, 45%, 0.25);
+      border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--primary);
+    }
+
+    /* CHECKBOX — before / after */
+    .cb-before {
+      width: 20px; height: 20px;
+      border: 2px solid hsla(150, 10%, 55%, 0.35);
+      border-radius: 4px;
+      background: transparent;
+    }
+    .cb-after {
+      width: 24px; height: 24px;
+      border: 2px solid hsla(150, 10%, 55%, 0.45);
+      border-radius: 6px;
+      background: transparent;
+      position: relative;
+    }
+    .cb-after.checked {
+      background: var(--primary);
+      border-color: var(--primary);
+      color: hsl(0 0% 0%);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800;
+    }
+
+    /* TRASH inline (before) vs OVERFLOW (after) */
+    .trash-before {
+      width: 24px; height: 24px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: hsla(150, 10%, 55%, 0.4);
+      cursor: pointer;
+    }
+    .overflow-after {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.04);
+    }
+
+    /* EXPORT links (before) vs icon button (after) */
+    .export-before {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 12px; color: var(--muted-fg);
+    }
+    .export-after {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      display: inline-flex; align-items: center; justify-content: center;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.04);
+    }
+
+    /* FILTER chip */
+    .filter-before {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      font-size: 12px; font-weight: 600;
+    }
+    .filter-before .ck {
+      width: 14px; height: 14px; border-radius: 3px;
+      border: 1px solid hsla(150, 10%, 55%, 0.5);
+    }
+    .filter-after {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid hsla(145, 60%, 45%, 0.50);
+      background: linear-gradient(180deg, hsla(145, 60%, 45%, 0.22), hsla(145, 60%, 45%, 0.10));
+      color: var(--primary);
+      font-size: 13px; font-weight: 700;
+      min-height: 36px;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.04), 0 2px 6px hsla(145, 60%, 30%, 0.18);
+    }
+    .filter-after .ck {
+      width: 16px; height: 16px; border-radius: 4px;
+      background: var(--primary);
+      color: hsl(0 0% 0%);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px; font-weight: 800;
+    }
+
+    /* GPS pill */
+    .gps-before {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      background: hsla(0,0%,0%,0.9);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--primary);
+      font-size: 11px;
+    }
+    .gps-after {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      background: hsla(0,0%,3%,0.9);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--primary);
+      font-size: 13px; font-weight: 600;
+    }
+    .gps-after .dot {
+      width: 7px; height: 7px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+    }
+
+    /* TRAIL SWITCH */
+    .ts {
+      position: relative;
+      display: inline-flex; align-items: center;
+      background: hsla(0, 0%, 6%, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+    }
+    .ts.before button {
+      padding: 4px 12px; font-size: 11px; font-weight: 700;
+      border: 0; background: transparent; color: var(--muted-fg);
+      border-radius: 999px;
+      font-family: inherit;
+    }
+    .ts.before button.active { background: var(--primary); color: hsl(0 0% 0%); }
+    .ts.after button {
+      position: relative; z-index: 1;
+      padding: 8px 18px; font-size: 13px; font-weight: 700;
+      border: 0; background: transparent; color: var(--muted-fg);
+      border-radius: 999px; font-family: inherit;
+      transition: color 200ms;
+    }
+    .ts.after button.active { color: hsl(0 0% 0%); }
+    .ts.after .indicator {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      width: calc(50% - 4px);
+      background: linear-gradient(180deg, hsl(145 70% 55%), hsl(145 60% 45%));
+      border-radius: 999px;
+      box-shadow: 0 2px 6px hsla(145, 60%, 30%, 0.4),
+                  inset 0 1px 0 hsla(0,0%,100%,0.2);
+      transform: translateX(0);
+      z-index: 0;
+    }
+
+    /* COMPARE CTA */
+    .compare-before {
+      width: 280px;
+      padding: 10px;
+      background: var(--primary); color: hsl(0 0% 0%);
+      border: 0; border-radius: 10px;
+      font-weight: 700; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      font-family: inherit;
+    }
+    .compare-after {
+      width: 280px;
+      padding: 14px 16px;
+      background: linear-gradient(135deg, hsl(145 65% 42%), hsl(145 60% 32%));
+      color: hsl(0 0% 0%);
+      border: 0;
+      border-radius: 16px;
+      display: inline-flex; align-items: center; gap: 12px;
+      font-family: inherit;
+      box-shadow:
+        0 -4px 20px hsla(145, 60%, 30%, 0.4),
+        0 14px 30px rgba(0,0,0,0.55),
+        inset 0 1px 0 hsla(0,0%,100%,0.18);
+    }
+    .compare-after .count {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: hsla(0,0%,0%,0.25);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px;
+    }
+    .compare-after .label { flex: 1; font-weight: 700; font-size: 14px; text-align: left; }
+
+    .hig-note {
+      max-width: 1080px; margin: 32px auto 0;
+      padding: 16px 20px;
+      border: 1px dashed hsla(35, 80%, 55%, 0.4);
+      border-radius: 12px;
+      background: hsla(35, 80%, 55%, 0.05);
+      color: var(--accent);
+      font-size: 12px; line-height: 1.6;
+    }
+    .hig-note b { color: var(--foreground); }
+  </style>
+</head>
+<body>
+
+  <h1>Button spec sheet — 2× zoom, before / after</h1>
+  <p class="sub">
+    Each cell shows one control isolated on a grid. Dashed amber boxes mark the <b>tap-target</b>
+    (visual size + invisible padding). iOS HIG min = 44×44 pt. The current production hits ≤24px on
+    several controls — fixed in the After column.
+  </p>
+
+  <div class="grid">
+
+    <div class="row">A · Instructions pill — start screen</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Instructions</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="40 × 40 tap">
+          <button class="ib-before">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Instructions
+          </button>
+        </div>
+      </div>
+      <div class="specs">
+        <span class="swatch" style="background: hsl(0 0% 3%);"></span> bg <b>card</b><br>
+        border <b>border</b> · radius <b>12px</b> · py <b>10px</b> · text <b>14/500</b><br>
+        no shadow · flat
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Instructions</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="48 × 48 tap">
+          <button class="ib-after">
+            <span class="chip">
+              <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+        </div>
+      </div>
+      <div class="specs">
+        bg <b>linear 8% → 3%</b> (subtle bevel)<br>
+        leading icon chip <b>30 × 30</b>, primary tint<br>
+        shadow <b>inset 0 1 0 / 6%</b> + <b>0 4 10 / 25%</b><br>
+        radius <b>14px</b> · text <b>15/500</b>
+      </div>
+    </div>
+
+    <div class="row">B · Compare checkbox — history row</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Row checkbox</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="20 × 20 ⚠️ small">
+          <span class="cb-before"></span>
+        </div>
+      </div>
+      <div class="specs">
+        size <b>20 × 20</b><br>
+        border <b>2px / muted-foreground 30%</b><br>
+        no expanded hit area<br>
+        ⚠️ below iOS HIG <b>44 × 44</b>
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Row checkbox</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="40 × 40 effective">
+          <span class="cb-after checked">✓</span>
+        </div>
+      </div>
+      <div class="specs">
+        visual <b>24 × 24</b><br>
+        invisible <b>::before { inset: -8px }</b> = <b>40 × 40</b> hit<br>
+        radius <b>6px</b> (was 4)<br>
+        selected: bg <b>primary</b>, ✓ glyph <b>800</b>
+      </div>
+    </div>
+
+    <div class="row">C · Row destructive — trash → overflow</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Inline trash</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="24 × 24 ⚠️ near expand-row">
+          <span class="trash-before">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+          </span>
+        </div>
+      </div>
+      <div class="specs">
+        size <b>16 × 16</b> icon · <b>p-1</b><br>
+        sits inside the <b>tap-anywhere expand row</b><br>
+        ⚠️ mis-tap risk · <b>destructive</b> action one slip away
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Overflow ⫶</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="36 × 36">
+          <button class="overflow-after">
+            <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="specs">
+        size <b>36 × 36</b> · radius <b>10px</b> · border<br>
+        opens menu: <i>Show splits / Export / Delete</i><br>
+        delete now <b>two-tap</b> · safer for thumb hits
+      </div>
+    </div>
+
+    <div class="row">D · Export — text link → icon button</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Splits CSV / GPS CSV</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="~80 × 16">
+          <span class="export-before">
+            <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Splits CSV
+          </span>
+        </div>
+      </div>
+      <div class="specs">
+        text-link, no container · <b>12px</b> font<br>
+        two of them = <b>visual clutter</b> in the toolbar<br>
+        no clear tap target
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Icon-only export</span><span class="tag after">After</span></div>
+      <div class="stage" style="display: flex; gap: 12px; justify-content: center;">
+        <div class="target-box" data-size="36 × 36">
+          <button class="export-after" aria-label="Splits CSV">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          </button>
+        </div>
+        <div class="target-box" data-size="36 × 36">
+          <button class="export-after" aria-label="GPS track CSV">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+          </button>
+        </div>
+      </div>
+      <div class="specs">
+        <b>36 × 36</b> · radius <b>10px</b> · long-press shows label<br>
+        <b>aria-label</b> + <b>title</b> attr for SR + tooltip<br>
+        pin icon = GPS track, download icon = splits
+      </div>
+    </div>
+
+    <div class="row">E · Filter chip — history</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">BCMC chip</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="~56 × 24 ⚠️">
+          <span class="filter-before">
+            <span class="ck"></span>
+            BCMC
+          </span>
+        </div>
+      </div>
+      <div class="specs">
+        py <b>4px</b> · text <b>11/600</b> · checkbox <b>14 × 14</b><br>
+        height ~<b>24px</b> ⚠️ below thumb-comfort
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">BCMC chip · pressed</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="36 high">
+          <span class="filter-after">
+            <span class="ck">✓</span>
+            BCMC
+          </span>
+        </div>
+      </div>
+      <div class="specs">
+        py <b>8px</b> · min-height <b>36px</b> · text <b>13/700</b><br>
+        gradient bg + soft primary glow when pressed<br>
+        scale <b>0.96</b> on :active for kinetic feedback
+      </div>
+    </div>
+
+    <div class="row">F · GPS pill — start screen</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">GPS · 6m</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="target-box" data-size="absolute on disc">
+          <span class="gps-before">
+            <svg class="lucide" width="11" height="11" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M22 12h-4M6 12H2"/></svg>
+            6m
+          </span>
+        </div>
+      </div>
+      <div class="specs">
+        text <b>11px</b> · py <b>2px</b><br>
+        absolute-positioned <b>top-right of disc</b><br>
+        ⚠️ overlaps the START disc edge · clutters CTA
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">GPS · 6m</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <span class="gps-after">
+          <span class="dot"></span>
+          GPS · 6m
+        </span>
+      </div>
+      <div class="specs">
+        text <b>13/600</b> · py <b>8px</b><br>
+        sibling <b>below</b> the disc · own breathing room<br>
+        <b>pulsing dot</b> reinforces "live"<br>
+        states: <i>searching · 6m · poor</i>
+      </div>
+    </div>
+
+    <div class="row">G · Trail switch — start screen</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">BCMC / GRIND</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <div class="ts before">
+          <button class="active">BCMC</button>
+          <button>GRIND</button>
+        </div>
+      </div>
+      <div class="specs">
+        py <b>1px</b> · text <b>11px</b> · no animation<br>
+        active state = abrupt color swap
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">BCMC / GRIND</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="ts after">
+          <span class="indicator"></span>
+          <button class="active">BCMC</button>
+          <button>GRIND</button>
+        </div>
+      </div>
+      <div class="specs">
+        py <b>8px</b> · text <b>13/700</b><br>
+        sliding indicator <b>transform 220ms</b><br>
+        gradient pill + <b>2px shadow</b><br>
+        thumb-friendly · feels kinetic
+      </div>
+    </div>
+
+    <div class="row">H · Compare CTA — history</div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Compare 2 hikes</span><span class="tag before">Before</span></div>
+      <div class="stage">
+        <button class="compare-before">
+          <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 12h4"/><path d="M11 8h4"/><path d="M15 16h2"/></svg>
+          Compare 2 Hikes
+        </button>
+      </div>
+      <div class="specs">
+        flat green · always at top of list<br>
+        renders even when not selected (mixed-trail msg state)<br>
+        full-width · pushes content down
+      </div>
+    </div>
+    <div class="cell">
+      <div class="h"><span class="ttl">Compare 2 hikes · slide-up</span><span class="tag after">After</span></div>
+      <div class="stage">
+        <div class="compare-after">
+          <span class="count">2</span>
+          <span class="label">Compare hikes</span>
+          <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+      </div>
+      <div class="specs">
+        diagonal gradient · radius <b>16px</b><br>
+        <b>fixed bottom</b>, slides up only when ≥2 selected<br>
+        count badge <b>28 × 28</b> · arrow signals forward<br>
+        mixed-trail = inline <span style="color: var(--destructive);">red text</span>
+      </div>
+    </div>
+
+  </div>
+
+  <div class="hig-note">
+    <b>Tap-target audit summary.</b>
+    iOS HIG recommends <b>44 × 44 pt</b>. After-pass meets ≥36px visual + ≥40px effective on every control.
+    The lone exception (PB-card trophy chip 46 × 46) is non-interactive — purely decorative.
+  </div>
+
+</body>
+</html>

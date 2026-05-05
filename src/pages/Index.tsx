@@ -100,32 +100,37 @@ interface TrailSwitchProps {
 }
 
 function TrailSwitch({ value, onChange }: TrailSwitchProps) {
+  const isBcmc = value === "bcmc";
   return (
     <div
       role="tablist"
       aria-label="Select trail"
-      className="flex items-center bg-card/80 border border-border rounded-full p-0.5 backdrop-blur-sm"
+      className="relative flex items-center bg-card/80 border border-border rounded-full p-1 backdrop-blur-sm"
     >
+      <span
+        aria-hidden
+        className="trail-switch-indicator absolute top-1 bottom-1 rounded-full"
+        style={{
+          width: "calc(50% - 4px)",
+          transform: isBcmc ? "translateX(0%)" : "translateX(100%)",
+        }}
+      />
       <button
         role="tab"
-        aria-selected={value === "bcmc"}
+        aria-selected={isBcmc}
         onClick={() => onChange("bcmc")}
-        className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors touch-manipulation select-none ${
-          value === "bcmc"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:text-foreground"
+        className={`relative z-10 px-4 py-2 text-xs font-bold tracking-wide rounded-full transition-colors touch-manipulation select-none ${
+          isBcmc ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
         }`}
       >
         BCMC
       </button>
       <button
         role="tab"
-        aria-selected={value === "grind"}
+        aria-selected={!isBcmc}
         onClick={() => onChange("grind")}
-        className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors touch-manipulation select-none ${
-          value === "grind"
-            ? "bg-primary text-primary-foreground"
-            : "text-muted-foreground hover:text-foreground"
+        className={`relative z-10 px-4 py-2 text-xs font-bold tracking-wide rounded-full transition-colors touch-manipulation select-none ${
+          !isBcmc ? "text-primary-foreground" : "text-muted-foreground hover:text-foreground"
         }`}
       >
         GRIND

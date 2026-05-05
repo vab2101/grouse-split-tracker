@@ -11,7 +11,7 @@ import {
   saveHistoryFilter,
 } from "@/lib/hike-store";
 import { TRAILS, type TrailId } from "@/lib/trails";
-import { Trophy, Calendar, Clock, Trash2, BarChart3, Download, ChevronDown, ChevronUp, Tag as TagIcon, Filter } from "lucide-react";
+import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, MapPin, ArrowRight } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -26,8 +26,17 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
   const [showComparison, setShowComparison] = useState(false);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [filter, setFilter] = useState<TrailId[]>(() => loadHistoryFilter());
+  const [menuOpenId, setMenuOpenId] = useState<string | null>(null);
 
   useEffect(() => { saveHistoryFilter(filter); }, [filter]);
+
+  // Close overflow menu on any outside interaction.
+  useEffect(() => {
+    if (!menuOpenId) return;
+    const close = () => setMenuOpenId(null);
+    document.addEventListener("click", close);
+    return () => document.removeEventListener("click", close);
+  }, [menuOpenId]);
 
   const completed = attempts.filter((a) => a.completed && a.totalTime);
   const visible = completed.filter((a) => filter.includes(attemptTrailId(a)));
@@ -134,23 +143,47 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
   );
   const compareMixed = compareTrailIds.size > 1;
 
+  const hasGpsTracks = visible.some((a) => a.gpsTrack && a.gpsTrack.length > 0);
+
   return (
-    <div className="px-6 py-4">
-      {/* Per-trail personal bests */}
+    <div className="px-6 py-4 pb-28 relative">
+      {/* Title row */}
+      <div className="flex items-baseline justify-between mb-4">
+        <h1 className="text-2xl font-extrabold tracking-tight">History</h1>
+        <span className="text-[10px] font-bold tracking-widest uppercase text-muted-foreground">
+          {completed.length} hike{completed.length === 1 ? "" : "s"}
+        </span>
+      </div>
+
+      {/* Per-trail personal bests — gradient cards */}
       {ALL_TRAIL_IDS.filter((tid) => filter.includes(tid) && bestByTrail.has(tid)).map((tid) => {
         const best = bestByTrail.get(tid)!;
+        const isGrind = tid === "grind";
         return (
           <div
             key={tid}
-            className="bg-primary/10 border border-primary/20 rounded-xl p-4 mb-3 flex items-center gap-4"
+            className={`${isGrind ? "pb-card-accent" : "pb-card-primary"} rounded-2xl p-4 mb-2 flex items-center gap-4`}
           >
-            <Trophy className="w-8 h-8 text-accent" />
-            <div className="flex-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-widest flex items-center gap-1.5">
+            <span
+              className={`w-12 h-12 rounded-xl flex items-center justify-center flex-none border ${
+                isGrind
+                  ? "bg-accent/15 border-accent/35 text-accent"
+                  : "bg-accent/15 border-accent/35 text-accent"
+              }`}
+              style={{ boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.08)" }}
+            >
+              <Trophy className="w-6 h-6" />
+            </span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[10px] font-bold tracking-[0.18em] uppercase text-muted-foreground flex items-center gap-1.5">
                 <TrailBadge trailId={tid} />
                 Personal Best
               </p>
-              <p className="text-2xl font-mono-display font-bold text-primary">
+              <p
+                className={`text-3xl font-mono-display font-bold leading-tight tabular-nums ${
+                  isGrind ? "text-accent" : "text-primary"
+                }`}
+              >
                 {formatDuration(best.totalTime!)}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -161,10 +194,9 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         );
       })}
 
-      {/* Filter checkboxes */}
-      <div className="mb-4 flex items-center gap-2 flex-wrap">
-        <Filter className="w-3.5 h-3.5 text-muted-foreground" />
-        <span className="text-xs uppercase tracking-widest text-muted-foreground mr-1">Show</span>
+      {/* Filter chips */}
+      <div className="mt-4 mb-2 flex items-center gap-2 flex-wrap">
+        <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">Show</span>
         {ALL_TRAIL_IDS.map((tid) => {
           const checked = filter.includes(tid);
           const onlyOne = filter.length === 1 && checked;
@@ -175,15 +207,17 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
               onClick={() => toggleFilter(tid)}
               disabled={onlyOne}
               aria-pressed={checked}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-xs font-semibold transition-colors touch-manipulation select-none ${
+              className={`flex items-center gap-2 px-3.5 py-2 rounded-full border text-[13px] font-bold min-h-[36px] active:scale-[0.96] transition-all touch-manipulation select-none ${
                 checked
-                  ? "bg-primary/15 border-primary/40 text-primary"
+                  ? "filter-chip-active text-primary"
                   : "bg-card border-border text-muted-foreground hover:text-foreground"
               } ${onlyOne ? "opacity-60 cursor-not-allowed" : ""}`}
             >
               <span
-                className={`w-3.5 h-3.5 rounded border flex items-center justify-center text-[10px] ${
-                  checked ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40"
+                className={`w-4 h-4 rounded flex items-center justify-center text-[10px] font-bold ${
+                  checked
+                    ? "bg-primary text-primary-foreground"
+                    : "border-[1.5px] border-muted-foreground/50"
                 }`}
               >
                 {checked && "✓"}
@@ -194,42 +228,30 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
         })}
       </div>
 
-      {/* Compare button */}
-      {comparing.length >= 2 && (
-        <button
-          onClick={() => !compareMixed && setShowComparison(true)}
-          disabled={compareMixed}
-          className={`w-full mb-4 py-2.5 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 ${
-            compareMixed
-              ? "bg-muted text-muted-foreground cursor-not-allowed"
-              : "bg-primary text-primary-foreground"
-          }`}
-        >
-          <BarChart3 className="w-4 h-4" />
-          {compareMixed ? "Pick hikes from one trail to compare" : `Compare ${comparing.length} Hikes`}
-        </button>
-      )}
-
-      <div className="flex items-center justify-between mb-3">
-        <p className="text-xs uppercase tracking-widest text-muted-foreground">
-          All Attempts ({visible.length}{visible.length !== completed.length ? ` of ${completed.length}` : ""})
+      {/* Toolbar */}
+      <div className="flex items-center justify-between mt-5 mb-3">
+        <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-muted-foreground">
+          All Attempts · {visible.length}{visible.length !== completed.length ? ` of ${completed.length}` : ""}
         </p>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
             onClick={() => exportHikesAsCsv(visible)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors"
+            aria-label="Export splits CSV"
+            title="Export splits CSV"
+            className="w-9 h-9 rounded-xl border border-border bg-card text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center justify-center touch-manipulation"
+            style={{ boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.04)" }}
           >
-            <Download className="w-3.5 h-3.5" />
-            Splits CSV
+            <Download className="w-4 h-4" />
           </button>
           <button
             onClick={() => exportGpsTracksAsCsv(visible)}
-            disabled={!visible.some((a) => a.gpsTrack && a.gpsTrack.length > 0)}
-            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-primary transition-colors disabled:opacity-40 disabled:hover:text-muted-foreground"
-            title="One row per raw GPS fix (only available on hikes recorded after the gpsTrack feature)"
+            disabled={!hasGpsTracks}
+            aria-label="Export GPS track CSV"
+            title="Export GPS track CSV (one row per raw GPS fix)"
+            className="w-9 h-9 rounded-xl border border-border bg-card text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center justify-center touch-manipulation disabled:opacity-40 disabled:hover:text-muted-foreground disabled:hover:border-border"
+            style={{ boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.04)" }}
           >
-            <Download className="w-3.5 h-3.5" />
-            GPS track CSV
+            <MapPin className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -244,60 +266,89 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
           return (
             <div
               key={a.id}
-              className={`bg-card border rounded-xl overflow-hidden transition-colors ${
-                isSelected ? "border-primary" : "border-border"
+              className={`bg-card border rounded-2xl overflow-hidden transition-colors ${
+                isSelected ? "border-primary/60 shadow-[inset_0_0_0_1px_hsla(145,60%,45%,0.2)]" : "border-border"
               }`}
+              style={isSelected ? { background: "linear-gradient(180deg, hsla(145,60%,45%,0.06), hsl(0 0% 4%))" } : undefined}
             >
               <div
-                className="flex items-center justify-between p-4 cursor-pointer touch-manipulation select-none"
+                className="flex items-center gap-3 p-3 pl-3 pr-2 cursor-pointer touch-manipulation select-none"
                 onClick={() => setExpandedId(isExpanded ? null : a.id)}
               >
-                <div className="flex items-center gap-3">
-                  <button
-                    onClick={(e) => { e.stopPropagation(); toggleCompare(a.id); }}
-                    className={`w-5 h-5 rounded border-2 flex items-center justify-center text-xs transition-colors touch-manipulation ${
-                      isSelected
-                        ? "bg-primary border-primary text-primary-foreground"
-                        : "border-muted-foreground/30"
-                    }`}
-                  >
-                    {isSelected && "✓"}
-                  </button>
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <TrailBadge trailId={tid} />
-                      <span className="font-mono-display font-bold text-lg">
-                        {formatDuration(a.totalTime!)}
+                <button
+                  onClick={(e) => { e.stopPropagation(); toggleCompare(a.id); }}
+                  aria-label={isSelected ? "Deselect for compare" : "Select for compare"}
+                  className={`relative w-6 h-6 rounded-md border-2 flex items-center justify-center text-xs font-extrabold flex-none transition-colors touch-manipulation before:absolute before:-inset-2 before:content-[''] ${
+                    isSelected
+                      ? "bg-primary border-primary text-primary-foreground"
+                      : "border-muted-foreground/45"
+                  }`}
+                >
+                  {isSelected && "✓"}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <TrailBadge trailId={tid} />
+                    <span className="font-mono-display font-bold text-lg tabular-nums">
+                      {formatDuration(a.totalTime!)}
+                    </span>
+                    {isBest && (
+                      <span className="text-[10px] bg-accent text-accent-foreground px-1.5 py-0.5 rounded font-bold uppercase tracking-wide">
+                        Best
                       </span>
-                      {isBest && (
-                        <span className="text-[10px] bg-accent text-accent-foreground px-1.5 py-0.5 rounded font-semibold uppercase">
-                          Best
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
-                      <Calendar className="w-3 h-3" />
-                      {new Date(a.date).toLocaleDateString("en-CA", {
-                        month: "short",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      <span>· {a.splits.length} markers</span>
-                    </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                    <Calendar className="w-3 h-3" />
+                    {new Date(a.date).toLocaleDateString("en-CA", {
+                      month: "short",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    <span className="opacity-60">·</span>
+                    <span>{a.splits.length} markers</span>
+                    {isExpanded ? (
+                      <ChevronUp className="w-3.5 h-3.5 ml-auto" />
+                    ) : (
+                      <ChevronDown className="w-3.5 h-3.5 ml-auto" />
+                    )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {isExpanded ? (
-                    <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                  )}
+                <div className="relative flex-none" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={(e) => { e.stopPropagation(); handleDelete(a.id); }}
-                    className="text-muted-foreground/40 hover:text-destructive transition-colors p-1 touch-manipulation"
+                    onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === a.id ? null : a.id); }}
+                    aria-label="More options"
+                    aria-haspopup="menu"
+                    aria-expanded={menuOpenId === a.id}
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center transition-colors touch-manipulation ${
+                      menuOpenId === a.id
+                        ? "bg-muted border border-border text-foreground"
+                        : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    }`}
                   >
-                    <Trash2 className="w-4 h-4" />
+                    <MoreVertical className="w-[18px] h-[18px]" />
                   </button>
+                  {menuOpenId === a.id && (
+                    <div
+                      role="menu"
+                      className="absolute top-10 right-0 z-30 min-w-[160px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
+                    >
+                      <button
+                        role="menuitem"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(null);
+                          if (window.confirm("Delete this hike? This cannot be undone.")) {
+                            handleDelete(a.id);
+                          }
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-destructive hover:bg-muted text-left"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Delete hike
+                      </button>
+                    </div>
+                  )}
                 </div>
               </div>
 
@@ -396,6 +447,37 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
           );
         })}
       </div>
+
+      {/* Slide-up compare bar — fixed near bottom when ≥2 selected */}
+      {comparing.length >= 2 && (
+        <div className="fixed bottom-[calc(env(safe-area-inset-bottom)+72px)] left-0 right-0 z-20 px-4 pointer-events-none">
+          <div className="mx-auto max-w-md pointer-events-auto">
+            {compareMixed ? (
+              <div className="compare-bar rounded-2xl px-4 py-3.5 flex items-center gap-3" style={{ background: "linear-gradient(135deg, hsl(0 60% 38%), hsl(0 60% 28%))" }}>
+                <span className="w-7 h-7 rounded-full bg-black/25 flex items-center justify-center font-extrabold text-sm text-black">
+                  {comparing.length}
+                </span>
+                <span className="flex-1 font-bold text-sm text-black">
+                  Pick hikes from one trail to compare
+                </span>
+              </div>
+            ) : (
+              <button
+                onClick={() => setShowComparison(true)}
+                className="compare-bar w-full rounded-2xl px-4 py-3.5 flex items-center gap-3 text-black active:scale-[0.98] transition-transform"
+              >
+                <span className="w-7 h-7 rounded-full bg-black/25 flex items-center justify-center font-extrabold text-sm">
+                  {comparing.length}
+                </span>
+                <span className="flex-1 text-left font-bold text-sm">
+                  Compare hikes
+                </span>
+                <ArrowRight className="w-[18px] h-[18px]" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
