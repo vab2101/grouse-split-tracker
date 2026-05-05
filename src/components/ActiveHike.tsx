@@ -571,31 +571,37 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
         {trailSwitch}
 
         {!startReady ? (
-          <button
-            onClick={() => setStartReady(true)}
-            className="disc-cta-secondary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-lg font-bold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
-          >
-            <MapPin className="w-10 h-10" />
-            In Parking Lot
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={() => setStartReady(true)}
+              className="disc-cta-secondary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-lg font-bold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
+            >
+              <MapPin className="w-10 h-10" />
+              In Parking Lot
+            </button>
+            <p className="text-muted-foreground text-xs">
+              Tap to start checking GPS
+            </p>
+          </div>
         ) : (
-          <button
-            onClick={handleStart}
-            className="disc-cta-primary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-2xl font-extrabold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
-          >
-            <Play className="w-10 h-10" fill="currentColor" />
-            START
-          </button>
+          <div className="flex flex-col items-center gap-3">
+            <button
+              onClick={handleStart}
+              className="disc-cta-primary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-2xl font-extrabold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
+            >
+              <Play className="w-10 h-10" fill="currentColor" />
+              START
+            </button>
+            <div
+              className={`flex items-center gap-2 px-4 py-2 rounded-full bg-card/90 border border-border backdrop-blur-sm text-sm font-semibold ${gps.colorClass}`}
+              aria-live="polite"
+            >
+              <Satellite className={`w-4 h-4 ${position ? "" : "animate-pulse"}`} />
+              <span className="gps-dot" aria-hidden />
+              {gps.label}
+            </div>
+          </div>
         )}
-
-        <div
-          className={`flex items-center gap-2 px-4 py-2 rounded-full bg-card/90 border border-border backdrop-blur-sm text-sm font-semibold ${gps.colorClass}`}
-          aria-live="polite"
-        >
-          <Satellite className={`w-4 h-4 ${position ? "" : "animate-pulse"}`} />
-          <span className="gps-dot" aria-hidden />
-          {gps.label}
-        </div>
 
         <p className="text-muted-foreground text-xs text-center max-w-xs">
           Tap marker buttons as you pass each {selectedTrail.fullName} marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.
