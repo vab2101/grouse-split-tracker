@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mockup — Start screen polish (3 CTA variants)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    :root {
+      --background: hsl(0 0% 0%);
+      --card: hsl(0 0% 3%);
+      --foreground: hsl(45 20% 92%);
+      --muted: hsl(0 0% 10%);
+      --muted-fg: hsl(150 10% 55%);
+      --border: hsl(0 0% 12%);
+      --primary: hsl(145 60% 45%);
+      --primary-bright: hsl(145 70% 55%);
+      --primary-deep: hsl(145 60% 32%);
+      --accent: hsl(35 80% 55%);
+      --warning: hsl(35 80% 55%);
+      --destructive: hsl(0 72% 51%);
+      --timer: hsl(45 20% 95%);
+    }
+    * , *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: #0b0d0c;
+      color: var(--foreground);
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    body {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 16px 60px;
+      gap: 28px;
+    }
+    h1.page-title {
+      font-size: 22px; font-weight: 700; margin: 0;
+      letter-spacing: -0.01em;
+    }
+    p.page-sub {
+      margin: 0; color: var(--muted-fg); font-size: 13px; max-width: 720px; text-align: center;
+    }
+    .row {
+      display: flex; gap: 22px; flex-wrap: wrap; justify-content: center;
+    }
+
+    /* Phone frame */
+    .phone {
+      width: 393px;
+      height: 760px;
+      background: var(--background);
+      border-radius: 40px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 2px #1b1d1c inset;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    .phone-tag {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted-fg); font-weight: 700;
+      background: rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--border);
+      z-index: 30;
+    }
+
+    /* Pre-start layout — mirrors ActiveHike.tsx:533 */
+    .prestart {
+      flex: 1; min-height: 0;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center;
+      padding: 56px 24px 32px;
+      gap: 28px;
+      position: relative;
+    }
+
+    .hero {
+      display: flex; flex-direction: column; align-items: center; gap: 10px;
+    }
+    .mountain {
+      width: 64px; height: 64px;
+      color: var(--primary);
+      filter: drop-shadow(0 0 18px hsla(145, 70%, 50%, 0.45))
+              drop-shadow(0 4px 12px hsla(145, 60%, 30%, 0.3));
+    }
+    .trail-name {
+      font-size: 26px; font-weight: 700; letter-spacing: -0.02em; margin: 0;
+    }
+    .trail-meta {
+      font-size: 13px; color: var(--muted-fg); margin: 0;
+    }
+    .trail-tag {
+      font-size: 11px; color: var(--muted-fg); margin: 0; opacity: 0.7;
+    }
+
+    /* Instructions pill (polished) */
+    .instructions-btn {
+      display: inline-flex; align-items: center; gap: 10px;
+      padding: 11px 16px 11px 11px;
+      border-radius: 12px;
+      background: linear-gradient(180deg, hsla(0,0%,8%,0.95), hsla(0,0%,3%,0.95));
+      border: 1px solid var(--border);
+      color: var(--foreground);
+      font-size: 14px; font-weight: 500;
+      box-shadow:
+        inset 0 1px 0 hsla(0,0%,100%,0.06),
+        0 1px 2px rgba(0,0,0,0.4),
+        0 4px 10px rgba(0,0,0,0.25);
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .instructions-btn .icon-chip {
+      width: 28px; height: 28px;
+      background: hsla(145, 60%, 45%, 0.12);
+      border: 1px solid hsla(145, 60%, 45%, 0.25);
+      border-radius: 8px;
+      display: inline-flex; align-items: center; justify-content: center;
+      color: var(--primary);
+    }
+
+    /* Trail switch */
+    .trail-switch {
+      position: relative;
+      display: inline-flex; align-items: center;
+      background: hsla(0, 0%, 6%, 0.85);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 4px;
+      backdrop-filter: blur(6px);
+    }
+    .trail-switch button {
+      position: relative;
+      z-index: 1;
+      padding: 7px 16px;
+      font-size: 12px; font-weight: 700; letter-spacing: 0.02em;
+      border-radius: 999px;
+      background: transparent; border: 0;
+      color: var(--muted-fg);
+      cursor: pointer; font-family: inherit;
+      transition: color 200ms ease;
+    }
+    .trail-switch button[aria-selected="true"] { color: hsl(0 0% 0%); }
+    .trail-switch .indicator {
+      position: absolute;
+      top: 4px; bottom: 4px;
+      width: calc(50% - 4px);
+      background: linear-gradient(180deg, var(--primary-bright), var(--primary));
+      border-radius: 999px;
+      box-shadow: 0 2px 6px hsla(145, 60%, 30%, 0.4),
+                  inset 0 1px 0 hsla(0,0%,100%,0.2);
+      transition: transform 220ms cubic-bezier(.4,0,.2,1);
+      z-index: 0;
+    }
+    .trail-switch[data-value="grind"] .indicator { transform: translateX(100%); }
+    .trail-switch[data-value="bcmc"]  .indicator { transform: translateX(0%); }
+
+    /* ============================================================
+       BIG CTA — three variants (192×192)
+       ============================================================ */
+    .cta-wrap { position: relative; }
+
+    .cta {
+      width: 192px; height: 192px;
+      border-radius: 50%;
+      display: flex; flex-direction: column; align-items: center;
+      justify-content: center; gap: 8px;
+      font-family: inherit;
+      cursor: pointer;
+      border: 0;
+      transition: transform 120ms ease;
+      position: relative;
+    }
+    .cta:active { transform: scale(0.97); }
+    .cta .label {
+      font-size: 22px; font-weight: 800; letter-spacing: 0.02em;
+    }
+    .cta.smaller .label { font-size: 18px; line-height: 1.05; max-width: 130px; text-align: center; }
+    .cta svg { width: 38px; height: 38px; }
+
+    /* --- Variant A: radial gradient + outer ring --- */
+    .cta-a {
+      background: radial-gradient(circle at 30% 25%,
+        hsl(145, 75%, 58%) 0%,
+        hsl(145, 65%, 42%) 55%,
+        hsl(145, 60%, 30%) 100%);
+      color: hsl(0 0% 0%);
+      box-shadow:
+        0 0 0 8px hsla(145, 60%, 45%, 0.12),
+        0 0 0 16px hsla(145, 60%, 45%, 0.05),
+        inset 0 2px 0 hsla(0,0%,100%,0.22),
+        inset 0 -3px 8px hsla(145, 60%, 15%, 0.5),
+        0 14px 36px hsla(145, 60%, 25%, 0.55),
+        0 4px 12px rgba(0,0,0,0.5);
+    }
+    .cta-a svg { stroke: hsl(0 0% 0%); }
+
+    /* --- Variant B: glassy ring --- */
+    .cta-b {
+      background:
+        radial-gradient(circle at 50% 30%, hsla(145, 60%, 25%, 0.45), hsla(0,0%,3%,0.85) 65%);
+      color: hsl(0 0% 96%);
+      border: 2.5px solid var(--primary);
+      backdrop-filter: blur(10px);
+      box-shadow:
+        0 0 0 8px hsla(145, 60%, 45%, 0.08),
+        inset 0 0 30px hsla(145, 60%, 45%, 0.18),
+        inset 0 1px 0 hsla(0,0%,100%,0.08),
+        0 14px 36px rgba(0,0,0,0.55);
+    }
+    .cta-b svg { stroke: var(--primary); }
+    .cta-b .label { color: hsl(0 0% 98%); }
+
+    /* --- Variant C: topo emboss + accent text --- */
+    .cta-c {
+      background:
+        radial-gradient(circle at 50% 50%, hsl(0 0% 8%) 0%, hsl(0 0% 3%) 100%);
+      color: var(--accent);
+      border: 2px solid hsla(145, 60%, 45%, 0.55);
+      box-shadow:
+        inset 0 1px 0 hsla(0,0%,100%,0.05),
+        inset 0 0 50px hsla(145, 60%, 30%, 0.18),
+        0 14px 36px rgba(0,0,0,0.55);
+      position: relative;
+      overflow: hidden;
+    }
+    .cta-c::before {
+      content: "";
+      position: absolute; inset: 0;
+      border-radius: 50%;
+      background-image:
+        repeating-radial-gradient(circle at 50% 50%,
+          transparent 0,
+          transparent 9px,
+          hsla(145, 60%, 50%, 0.12) 9px,
+          hsla(145, 60%, 50%, 0.12) 10px);
+      mask-image: radial-gradient(circle at 50% 50%, black 60%, transparent 100%);
+      pointer-events: none;
+    }
+    .cta-c svg { stroke: var(--accent); position: relative; z-index: 1; }
+    .cta-c .label { position: relative; z-index: 1; }
+
+    /* "In Parking Lot" passive variants — slightly smaller text */
+    .cta.passive { }
+    .cta.passive .label { font-size: 17px; line-height: 1.15; }
+
+    /* GPS pill — moved BELOW the disc */
+    .gps-pill {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 6px 12px;
+      background: hsla(0,0%,3%,0.9);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      font-size: 12px; color: var(--primary);
+      backdrop-filter: blur(6px);
+    }
+    .gps-pill .dot {
+      width: 6px; height: 6px; border-radius: 50%;
+      background: var(--primary);
+      box-shadow: 0 0 8px var(--primary);
+      animation: pulse 1.6s ease-in-out infinite;
+    }
+    @keyframes pulse { 0%,100%{opacity:1;} 50%{opacity:0.4;} }
+
+    .help-text {
+      font-size: 12px; color: var(--muted-fg);
+      max-width: 280px; text-align: center;
+      line-height: 1.45;
+    }
+
+    /* Compare row at top */
+    .pill-tag {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: hsla(145, 60%, 45%, 0.12);
+      border: 1px solid hsla(145, 60%, 45%, 0.25);
+      color: var(--primary);
+      font-size: 10px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    }
+
+    /* Caption under each phone */
+    .caption {
+      max-width: 393px;
+      text-align: center;
+      color: var(--muted-fg);
+      font-size: 12px;
+      line-height: 1.5;
+    }
+    .caption b { color: var(--foreground); }
+    .frame-block { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+
+    /* "Before" rendering for comparison */
+    .cta.before-flat {
+      background: var(--primary);
+      color: hsl(0 0% 0%);
+      box-shadow: none;
+      border: 0;
+    }
+    .cta.before-flat svg { stroke: hsl(0 0% 0%); }
+
+    .section-h {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--muted-fg); margin: 12px 0 -4px;
+    }
+
+    /* Lucide icon stroke defaults */
+    svg.lucide {
+      fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round;
+    }
+  </style>
+</head>
+<body>
+
+  <h1 class="page-title">Start screen — polish mockups</h1>
+  <p class="page-sub">
+    Three big-CTA treatments side-by-side. Same content as <code>ActiveHike.tsx:527-603</code>.
+    Far-left = current production (flat solid disc). The remaining three each show
+    <b>In Parking Lot → START</b> in the same visual language so you can judge the pair, not just the active state.
+  </p>
+
+  <div class="section-h">In Parking Lot (passive / pre-start)</div>
+  <div class="row">
+
+    <!-- ============ BEFORE (current prod) ============ -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">Before · current</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+            <p class="trail-tag">Start at Grouse Grind timer card trailhead scan</p>
+          </div>
+          <button class="instructions-btn" style="background: hsl(0 0% 3%); box-shadow: none;">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta before-flat smaller passive">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="label">In Parking Lot</span>
+          </button>
+        </div>
+      </div>
+      <div class="caption">Current: solid <code>bg-secondary</code> disc, no depth, GPS pill absolute on top-right.</div>
+    </div>
+
+    <!-- ============ A: radial+ring ============ -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">A · gradient + ring</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-a smaller passive" style="background: radial-gradient(circle at 30% 25%, hsl(30 50% 35%), hsl(30 40% 22%) 70%); color: hsl(45 20% 92%); box-shadow: 0 0 0 8px hsla(30,40%,30%,0.15), inset 0 2px 0 hsla(0,0%,100%,0.12), 0 10px 28px rgba(0,0,0,0.5);">
+            <svg class="lucide" viewBox="0 0 24 24" style="stroke: hsl(45 20% 92%);"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="label">In Parking Lot</span>
+          </button>
+          <div class="gps-pill"><span class="dot"></span> GPS · searching</div>
+        </div>
+      </div>
+      <div class="caption">Warm-brown radial mirrors the green primary's depth. <b>Tap once</b> arrives in parking lot → state earns the bright green disc.</div>
+    </div>
+
+    <!-- ============ B: glassy ring ============ -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">B · glassy ring</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-b smaller passive">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="label">In Parking Lot</span>
+          </button>
+          <div class="gps-pill"><span class="dot"></span> GPS · searching</div>
+        </div>
+      </div>
+      <div class="caption">Dark glass core, primary stroke ring. Reads <b>premium / restrained</b>. Same treatment scales to START.</div>
+    </div>
+
+    <!-- ============ C: topo emboss ============ -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">C · topo emboss</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-c smaller passive">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
+            <span class="label">In Parking Lot</span>
+          </button>
+          <div class="gps-pill"><span class="dot"></span> GPS · searching</div>
+        </div>
+      </div>
+      <div class="caption">Faint contour-ring pattern inside the disc. Hiking-themed callback, lowest battery cost (mostly black pixels).</div>
+    </div>
+  </div>
+
+  <div class="section-h">START (active / ready)</div>
+  <div class="row">
+
+    <!-- BEFORE START -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">Before · current</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn" style="background: hsl(0 0% 3%); box-shadow: none;">
+            <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <div class="cta-wrap">
+            <button class="cta before-flat passive">
+              <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+              <span class="label">START</span>
+            </button>
+            <div style="position: absolute; top: 0; right: 0; display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; background: hsla(0,0%,0%,0.9); border: 1px solid var(--border); border-radius: 999px; font-size: 11px; color: var(--primary);">
+              <svg class="lucide" width="12" height="12" viewBox="0 0 24 24" style="stroke: var(--primary);"><circle cx="12" cy="12" r="3"/><path d="M12 2v4M12 18v4M22 12h-4M6 12H2"/></svg>
+              6m
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="caption">Current: flat green, GPS pill clipping the top-right of the disc.</div>
+    </div>
+
+    <!-- A START -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">A · gradient + ring</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-a">
+            <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="label">START</span>
+          </button>
+          <div class="gps-pill" style="color: var(--primary);"><span class="dot"></span> GPS · 6m</div>
+        </div>
+      </div>
+      <div class="caption">Recommended for START. Radial highlight at upper-left makes the disc feel <b>lit / pressed-in-from-the-back</b>. Outer ring + drop-shadow give it presence at arm's length.</div>
+    </div>
+
+    <!-- B START -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">B · glassy ring</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-b">
+            <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="label">START</span>
+          </button>
+          <div class="gps-pill"><span class="dot"></span> GPS · 6m</div>
+        </div>
+      </div>
+      <div class="caption">Same treatment as the passive disc. Cohesive, but the active CTA may not pop enough — feels equal to the trail switch in weight.</div>
+    </div>
+
+    <!-- C START -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">C · topo emboss</span>
+        <div class="prestart">
+          <div class="hero">
+            <svg class="lucide mountain" viewBox="0 0 24 24"><path d="m8 3 4 8 5-5 5 15H2L8 3z"/></svg>
+            <h2 class="trail-name">Grouse Grind</h2>
+            <p class="trail-meta">2.50 km · 800m elevation gain</p>
+          </div>
+          <button class="instructions-btn">
+            <span class="icon-chip">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+            </span>
+            Instructions
+          </button>
+          <div class="trail-switch" data-value="bcmc">
+            <span class="indicator"></span>
+            <button aria-selected="true">BCMC</button>
+            <button aria-selected="false">GRIND</button>
+          </div>
+          <button class="cta cta-c">
+            <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            <span class="label">START</span>
+          </button>
+          <div class="gps-pill" style="color: var(--accent);"><span class="dot" style="background: var(--accent); box-shadow: 0 0 8px var(--accent);"></span> GPS · 6m</div>
+        </div>
+      </div>
+      <div class="caption">Amber START on dark contour ring. Strong identity but amber = warning elsewhere — risk of confusion.</div>
+    </div>
+  </div>
+
+  <p class="page-sub" style="margin-top: 32px;">
+    <b>Recommended pairing:</b> A for both states (warm-brown passive → green active) — the colour swap reinforces the mode change.
+    Reject C if amber overloads with the warning palette.
+  </p>
+
+</body>
+</html>

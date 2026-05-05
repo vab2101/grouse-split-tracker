@@ -1,0 +1,760 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Mockup — History screen polish</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap">
+  <style>
+    :root {
+      --background: hsl(0 0% 0%);
+      --card: hsl(0 0% 4%);
+      --card-2: hsl(0 0% 6%);
+      --foreground: hsl(45 20% 92%);
+      --muted: hsl(0 0% 10%);
+      --muted-fg: hsl(150 10% 55%);
+      --border: hsl(0 0% 12%);
+      --primary: hsl(145 60% 45%);
+      --primary-bright: hsl(145 70% 55%);
+      --accent: hsl(35 80% 55%);
+      --destructive: hsl(0 72% 51%);
+    }
+    * , *::before, *::after { box-sizing: border-box; }
+    html, body {
+      margin: 0; padding: 0;
+      background: #0b0d0c;
+      color: var(--foreground);
+      font-family: 'Inter', -apple-system, system-ui, sans-serif;
+      -webkit-font-smoothing: antialiased;
+      min-height: 100vh;
+    }
+    body {
+      display: flex; flex-direction: column; align-items: center;
+      padding: 24px 16px 60px; gap: 28px;
+    }
+    h1 { font-size: 22px; font-weight: 700; margin: 0; letter-spacing: -0.01em; }
+    .sub { color: var(--muted-fg); font-size: 13px; max-width: 760px; text-align: center; margin: 0; }
+    .row { display: flex; gap: 22px; flex-wrap: wrap; justify-content: center; align-items: flex-start; }
+    .frame-block { display: flex; flex-direction: column; gap: 12px; align-items: center; }
+    .caption { max-width: 393px; text-align: center; color: var(--muted-fg); font-size: 12px; line-height: 1.5; }
+    .caption b { color: var(--foreground); }
+
+    .phone {
+      width: 393px; height: 800px;
+      background: var(--background);
+      border-radius: 40px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.6), 0 0 0 2px #1b1d1c inset;
+      overflow: hidden;
+      display: flex; flex-direction: column;
+      position: relative;
+    }
+    .phone-tag {
+      position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+      font-size: 10px; letter-spacing: 2px; text-transform: uppercase;
+      color: var(--muted-fg); font-weight: 700;
+      background: rgba(0,0,0,0.5); padding: 4px 10px; border-radius: 999px;
+      border: 1px solid var(--border);
+      z-index: 30;
+    }
+    .scroll {
+      flex: 1; overflow-y: auto;
+      padding: 50px 20px 16px;
+    }
+    .nav {
+      flex: none;
+      border-top: 1px solid var(--border);
+      background: var(--card);
+      display: flex;
+    }
+    .nav button {
+      flex: 1; background: transparent; border: 0;
+      color: var(--muted-fg);
+      font-family: inherit;
+      padding: 12px 0;
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .nav button.active { color: var(--primary); }
+    .nav svg { width: 20px; height: 20px; }
+    svg.lucide { fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+    /* ---------- BEFORE styles ---------- */
+    .b-pb {
+      background: hsla(145, 60%, 45%, 0.10);
+      border: 1px solid hsla(145, 60%, 45%, 0.20);
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 12px;
+      display: flex; align-items: center; gap: 16px;
+    }
+    .b-pb svg { color: var(--accent); width: 32px; height: 32px; }
+    .b-pb .label { font-size: 10px; color: var(--muted-fg); letter-spacing: 0.15em; text-transform: uppercase; }
+    .b-pb .time { font-family: 'JetBrains Mono', monospace; font-size: 24px; font-weight: 700; color: var(--primary); }
+    .b-pb .date { font-size: 11px; color: var(--muted-fg); }
+
+    .b-filter-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin-bottom: 16px;
+    }
+    .b-filter-row .lbl { font-size: 11px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.15em; margin-right: 4px; }
+    .b-chip {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      font-size: 11px; font-weight: 600;
+      cursor: pointer; font-family: inherit;
+    }
+    .b-chip[aria-pressed="true"] {
+      background: hsla(145, 60%, 45%, 0.15);
+      border-color: hsla(145, 60%, 45%, 0.40);
+      color: var(--primary);
+    }
+    .b-chip .check {
+      width: 14px; height: 14px; border-radius: 3px;
+      border: 1px solid var(--muted-fg);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 9px;
+    }
+    .b-chip[aria-pressed="true"] .check {
+      background: var(--primary); border-color: var(--primary); color: hsl(0 0% 0%);
+    }
+
+    .b-meta-row {
+      display: flex; justify-content: space-between; align-items: center;
+      margin-bottom: 12px;
+    }
+    .b-meta-row .ttl { font-size: 11px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.15em; }
+    .b-export {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--muted-fg);
+      background: transparent; border: 0; cursor: pointer; font-family: inherit;
+    }
+
+    .b-card {
+      background: var(--card); border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .b-card.selected { border-color: var(--primary); }
+    .b-card .left { display: flex; align-items: center; gap: 12px; }
+    .b-checkbox {
+      width: 20px; height: 20px;
+      border: 2px solid hsla(150, 10%, 55%, 0.4);
+      border-radius: 4px;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px;
+    }
+    .b-checkbox.checked { background: var(--primary); border-color: var(--primary); color: hsl(0 0% 0%); }
+    .b-trail-badge {
+      font-size: 9px; font-weight: 700; letter-spacing: 0.1em;
+      padding: 2px 6px; border-radius: 4px;
+      background: hsla(145, 60%, 45%, 0.18);
+      color: var(--primary);
+    }
+    .b-time { font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px; }
+    .b-date { font-size: 11px; color: var(--muted-fg); margin-top: 2px; display: flex; align-items: center; gap: 6px; }
+    .b-actions { display: flex; align-items: center; gap: 4px; color: var(--muted-fg); }
+    .b-trash { color: hsla(150, 10%, 55%, 0.4); padding: 4px; cursor: pointer; }
+
+    .b-compare {
+      width: 100%; padding: 10px;
+      background: var(--primary); color: hsl(0 0% 0%);
+      border: 0; border-radius: 10px;
+      font-weight: 700; font-size: 13px;
+      display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+      margin: 12px 0;
+      font-family: inherit;
+      cursor: pointer;
+    }
+
+    /* ---------- AFTER styles ---------- */
+    .h-title-row {
+      display: flex; justify-content: space-between; align-items: baseline;
+      margin-bottom: 16px;
+    }
+    .h-title { font-size: 24px; font-weight: 800; letter-spacing: -0.02em; }
+    .h-count { font-size: 11px; color: var(--muted-fg); letter-spacing: 0.15em; text-transform: uppercase; }
+
+    /* Polished PB card — diagonal gradient + amber trophy chip */
+    .h-pb {
+      background:
+        linear-gradient(135deg,
+          hsla(145, 60%, 45%, 0.22) 0%,
+          hsla(145, 60%, 45%, 0.06) 55%,
+          hsla(35, 80%, 55%, 0.10) 100%);
+      border: 1px solid hsla(145, 60%, 45%, 0.30);
+      border-radius: 16px;
+      padding: 18px;
+      display: flex; align-items: center; gap: 16px;
+      box-shadow:
+        inset 0 1px 0 hsla(0,0%,100%,0.05),
+        0 4px 14px hsla(145, 60%, 30%, 0.18);
+      margin-bottom: 8px;
+    }
+    .h-pb + .h-pb { margin-top: 0; }
+    .trophy-chip {
+      width: 46px; height: 46px;
+      background: hsla(35, 80%, 55%, 0.15);
+      border: 1px solid hsla(35, 80%, 55%, 0.35);
+      border-radius: 12px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: none;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.08);
+    }
+    .trophy-chip svg { color: var(--accent); width: 24px; height: 24px; }
+    .h-pb .meta {
+      flex: 1; display: flex; flex-direction: column; gap: 2px;
+    }
+    .h-pb .lbl {
+      font-size: 10px; font-weight: 700;
+      color: var(--muted-fg); letter-spacing: 0.18em; text-transform: uppercase;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .h-pb .time {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 30px; font-weight: 700;
+      color: var(--primary);
+      font-variant-numeric: tabular-nums;
+      line-height: 1.05;
+      letter-spacing: -0.01em;
+    }
+    .h-pb .date { font-size: 11px; color: var(--muted-fg); }
+    .h-trail-pill {
+      display: inline-flex; align-items: center;
+      padding: 2px 7px; border-radius: 4px;
+      background: hsla(145, 60%, 45%, 0.25);
+      color: var(--primary);
+      font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+    }
+
+    /* Filter chip row — bigger, clearly tappable */
+    .h-filter-row {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      margin: 16px 0 10px;
+    }
+    .h-filter-row .lbl {
+      font-size: 10px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.18em;
+      font-weight: 700;
+    }
+    .h-chip {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      font-size: 12px; font-weight: 700;
+      cursor: pointer; font-family: inherit;
+      min-height: 36px;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.03);
+      transition: transform 120ms ease;
+    }
+    .h-chip:active { transform: scale(0.96); }
+    .h-chip[aria-pressed="true"] {
+      background: linear-gradient(180deg, hsla(145, 60%, 45%, 0.22), hsla(145, 60%, 45%, 0.10));
+      border-color: hsla(145, 60%, 45%, 0.50);
+      color: var(--primary);
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.04), 0 2px 6px hsla(145, 60%, 30%, 0.18);
+    }
+    .h-chip .checkbox {
+      width: 16px; height: 16px;
+      border-radius: 4px;
+      border: 1.5px solid hsla(150, 10%, 55%, 0.5);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 10px;
+    }
+    .h-chip[aria-pressed="true"] .checkbox {
+      background: var(--primary); border-color: var(--primary); color: hsl(0 0% 0%);
+    }
+
+    /* Toolbar: title + icon-only export buttons */
+    .h-toolbar {
+      display: flex; justify-content: space-between; align-items: center;
+      margin: 18px 0 10px;
+    }
+    .h-toolbar .lbl {
+      font-size: 10px; color: var(--muted-fg); text-transform: uppercase; letter-spacing: 0.18em;
+      font-weight: 700;
+    }
+    .icon-btn {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: var(--card);
+      color: var(--muted-fg);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-family: inherit;
+      box-shadow: inset 0 1px 0 hsla(0,0%,100%,0.04);
+      transition: color 120ms, border-color 120ms;
+    }
+    .icon-btn:hover { color: var(--primary); border-color: hsla(145, 60%, 45%, 0.4); }
+    .icon-btn.disabled { opacity: 0.4; cursor: not-allowed; }
+    .h-toolbar-buttons { display: flex; gap: 8px; }
+
+    /* Polished hike row */
+    .h-card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px 14px 14px 12px;
+      display: flex; align-items: center;
+      gap: 12px;
+      margin-bottom: 8px;
+      transition: border-color 150ms, background 150ms;
+      position: relative;
+    }
+    .h-card.selected {
+      border-color: hsla(145, 60%, 45%, 0.6);
+      background: linear-gradient(180deg, hsla(145, 60%, 45%, 0.06), var(--card));
+      box-shadow: inset 0 0 0 1px hsla(145, 60%, 45%, 0.2);
+    }
+    .h-card .check {
+      width: 24px; height: 24px;
+      border: 2px solid hsla(150, 10%, 55%, 0.45);
+      border-radius: 6px;
+      display: inline-flex; align-items: center; justify-content: center;
+      flex: none; cursor: pointer;
+      position: relative;
+      transition: all 120ms;
+    }
+    /* Expanded tap-target */
+    .h-card .check::before {
+      content: ""; position: absolute; inset: -8px;
+    }
+    .h-card.selected .check {
+      background: var(--primary); border-color: var(--primary); color: hsl(0 0% 0%);
+    }
+    .h-card .body {
+      flex: 1; min-width: 0;
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .h-card .row1 { display: flex; align-items: center; gap: 8px; }
+    .h-card .time {
+      font-family: 'JetBrains Mono', monospace;
+      font-weight: 700; font-size: 19px;
+      font-variant-numeric: tabular-nums;
+      letter-spacing: -0.01em;
+    }
+    .badge-best {
+      font-size: 9px; font-weight: 800; letter-spacing: 0.08em;
+      padding: 2px 7px; border-radius: 4px;
+      background: var(--accent); color: hsl(0 0% 0%);
+      text-transform: uppercase;
+    }
+    .h-card .row2 {
+      font-size: 11px; color: var(--muted-fg);
+      display: flex; align-items: center; gap: 8px;
+    }
+    .h-card .row2 svg { width: 12px; height: 12px; }
+    .h-card .right {
+      display: flex; align-items: center; gap: 4px;
+      flex: none; color: var(--muted-fg);
+    }
+    /* Single overflow button replaces inline trash */
+    .overflow-btn {
+      width: 36px; height: 36px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--muted-fg);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer; font-family: inherit;
+    }
+    .overflow-btn:hover {
+      background: var(--muted);
+      border-color: var(--border);
+    }
+
+    /* Slide-up compare bar */
+    .compare-bar {
+      position: absolute;
+      left: 16px; right: 16px; bottom: 72px;
+      padding: 14px 16px;
+      border-radius: 16px;
+      background: linear-gradient(135deg, hsl(145 65% 42%), hsl(145 60% 32%));
+      color: hsl(0 0% 0%);
+      display: flex; align-items: center; gap: 12px;
+      box-shadow:
+        0 -4px 20px hsla(145, 60%, 30%, 0.4),
+        0 14px 30px rgba(0,0,0,0.55),
+        inset 0 1px 0 hsla(0,0%,100%,0.18);
+      animation: slide-up 320ms cubic-bezier(.4,0,.2,1);
+      z-index: 10;
+    }
+    @keyframes slide-up {
+      from { transform: translateY(120%); opacity: 0; }
+      to   { transform: translateY(0); opacity: 1; }
+    }
+    .compare-bar .count {
+      width: 28px; height: 28px; border-radius: 50%;
+      background: hsla(0,0%,0%,0.25);
+      display: inline-flex; align-items: center; justify-content: center;
+      font-weight: 800; font-size: 13px;
+    }
+    .compare-bar .label {
+      flex: 1; font-weight: 700; font-size: 14px; letter-spacing: 0.01em;
+    }
+    .compare-bar svg { width: 18px; height: 18px; }
+
+    .h-context-menu {
+      position: absolute;
+      top: 50px; right: 8px;
+      background: hsl(0 0% 6%);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 6px;
+      box-shadow: 0 12px 30px rgba(0,0,0,0.6);
+      display: flex; flex-direction: column; gap: 2px;
+      min-width: 160px;
+      z-index: 5;
+    }
+    .h-context-menu button {
+      background: transparent; border: 0;
+      color: var(--foreground);
+      padding: 9px 12px;
+      font-family: inherit; font-size: 13px;
+      display: flex; align-items: center; gap: 10px;
+      border-radius: 8px;
+      cursor: pointer; text-align: left;
+    }
+    .h-context-menu button:hover { background: var(--muted); }
+    .h-context-menu button.destructive { color: var(--destructive); }
+    .h-context-menu svg { width: 14px; height: 14px; }
+
+    .section-h {
+      font-size: 13px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 2px; color: var(--muted-fg); margin: 0;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>History screen — polish mockup</h1>
+  <p class="sub">
+    Side-by-side: <b>Before</b> = current production
+    (<code>HikeHistory.tsx:137-399</code>) vs. <b>After</b> = polished pass.
+    The After phone shows a compare-selection state so you can see the slide-up
+    compare bar + selected-row treatment.
+  </p>
+
+  <div class="row">
+
+    <!-- ============= BEFORE ============= -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">Before · current</span>
+        <div class="scroll" style="padding: 50px 24px 16px;">
+          <!-- PB card -->
+          <div class="b-pb">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            <div style="flex:1;">
+              <div class="label">BCMC · Personal best</div>
+              <div class="time">42:18</div>
+              <div class="date">Mar 12, 2026</div>
+            </div>
+          </div>
+
+          <!-- Filters -->
+          <div class="b-filter-row">
+            <svg class="lucide" width="14" height="14" viewBox="0 0 24 24" style="color: var(--muted-fg);"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/></svg>
+            <span class="lbl">Show</span>
+            <button class="b-chip" aria-pressed="true"><span class="check">✓</span> BCMC</button>
+            <button class="b-chip" aria-pressed="true"><span class="check">✓</span> Grouse Grind</button>
+          </div>
+
+          <!-- meta row -->
+          <div class="b-meta-row">
+            <span class="ttl">All Attempts (12)</span>
+            <div style="display:flex; gap:12px;">
+              <button class="b-export">
+                <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Splits CSV
+              </button>
+              <button class="b-export">
+                <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                GPS track CSV
+              </button>
+            </div>
+          </div>
+
+          <!-- rows -->
+          <div class="b-card">
+            <div class="left">
+              <span class="b-checkbox"></span>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="b-trail-badge">BCMC</span>
+                  <span class="b-time">44:02</span>
+                </div>
+                <div class="b-date">
+                  <svg class="lucide" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Mar 10, 2026 · 7 markers
+                </div>
+              </div>
+            </div>
+            <div class="b-actions">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="b-trash">
+                <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="b-card">
+            <div class="left">
+              <span class="b-checkbox"></span>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="b-trail-badge" style="background: hsla(35,80%,55%,0.18); color: var(--accent);">GRIND</span>
+                  <span class="b-time">38:55</span>
+                  <span style="font-size:9px; background: var(--accent); color:hsl(0 0% 0%); padding:2px 6px; border-radius:3px; font-weight: 700; text-transform: uppercase;">Best</span>
+                </div>
+                <div class="b-date">
+                  <svg class="lucide" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Mar 08, 2026 · 6 markers
+                </div>
+              </div>
+            </div>
+            <div class="b-actions">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="b-trash">
+                <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </span>
+            </div>
+          </div>
+
+          <div class="b-card">
+            <div class="left">
+              <span class="b-checkbox"></span>
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span class="b-trail-badge">BCMC</span>
+                  <span class="b-time">46:31</span>
+                </div>
+                <div class="b-date">
+                  <svg class="lucide" width="11" height="11" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                  Feb 28, 2026 · 7 markers
+                </div>
+              </div>
+            </div>
+            <div class="b-actions">
+              <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+              <span class="b-trash">
+                <svg class="lucide" width="14" height="14" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+              </span>
+            </div>
+          </div>
+        </div>
+        <div class="nav">
+          <button>
+            <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Track
+          </button>
+          <button class="active">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            History
+          </button>
+        </div>
+      </div>
+      <div class="caption">
+        Issues: no screen title, flat PB card, 20px checkboxes, trash 1px from expand-row tap area, text-link exports fight with title.
+      </div>
+    </div>
+
+    <!-- ============= AFTER ============= -->
+    <div class="frame-block">
+      <div class="phone">
+        <span class="phone-tag">After · polished</span>
+        <div class="scroll">
+
+          <!-- Title row -->
+          <div class="h-title-row">
+            <span class="h-title">History</span>
+            <span class="h-count">12 hikes</span>
+          </div>
+
+          <!-- PB cards (gradient) -->
+          <div class="h-pb">
+            <span class="trophy-chip">
+              <svg class="lucide" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            </span>
+            <div class="meta">
+              <div class="lbl"><span class="h-trail-pill">BCMC</span> Personal best</div>
+              <div class="time">42:18</div>
+              <div class="date">Mar 12, 2026</div>
+            </div>
+          </div>
+
+          <div class="h-pb" style="background: linear-gradient(135deg, hsla(35, 80%, 55%, 0.20) 0%, hsla(35, 80%, 55%, 0.05) 55%, hsla(145, 60%, 45%, 0.10) 100%); border-color: hsla(35, 80%, 55%, 0.35);">
+            <span class="trophy-chip">
+              <svg class="lucide" viewBox="0 0 24 24"><path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"/><path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"/><path d="M4 22h16"/><path d="M10 14.66V17c0 .55-.47.98-.97 1.21C7.85 18.75 7 20.24 7 22"/><path d="M14 14.66V17c0 .55.47.98.97 1.21C16.15 18.75 17 20.24 17 22"/><path d="M18 2H6v7a6 6 0 0 0 12 0V2Z"/></svg>
+            </span>
+            <div class="meta">
+              <div class="lbl"><span class="h-trail-pill" style="background: hsla(35,80%,55%,0.25); color: var(--accent);">GRIND</span> Personal best</div>
+              <div class="time" style="color: var(--accent);">38:55</div>
+              <div class="date">Mar 08, 2026</div>
+            </div>
+          </div>
+
+          <!-- Filter chips -->
+          <div class="h-filter-row">
+            <span class="lbl">Show</span>
+            <button class="h-chip" aria-pressed="true"><span class="checkbox">✓</span> BCMC</button>
+            <button class="h-chip" aria-pressed="true"><span class="checkbox">✓</span> Grouse Grind</button>
+          </div>
+
+          <!-- Toolbar: title + icon-only export -->
+          <div class="h-toolbar">
+            <span class="lbl">All attempts</span>
+            <div class="h-toolbar-buttons">
+              <button class="icon-btn" title="Export splits CSV" aria-label="Export splits CSV">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              </button>
+              <button class="icon-btn" title="Export GPS track CSV" aria-label="Export GPS track CSV" style="position: relative;">
+                <svg class="lucide" width="16" height="16" viewBox="0 0 24 24"><path d="M12 2a8 8 0 0 0-8 8c0 6 8 12 8 12s8-6 8-12a8 8 0 0 0-8-8z"/><circle cx="12" cy="10" r="3"/></svg>
+                <span style="position:absolute; top:-4px; right:-4px; width:14px; height:14px; border-radius:50%; background: var(--card); border: 2px solid var(--background); display:inline-flex; align-items:center; justify-content:center; color: var(--muted-fg); font-size: 8px;">↓</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Rows: row 1 selected -->
+          <div class="h-card selected">
+            <span class="check">✓</span>
+            <div class="body">
+              <div class="row1">
+                <span class="h-trail-pill">BCMC</span>
+                <span class="time">44:02</span>
+              </div>
+              <div class="row2">
+                <svg class="lucide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Mar 10, 2026
+                <span style="opacity: 0.6;">·</span>
+                <span>7 markers</span>
+              </div>
+            </div>
+            <div class="right">
+              <button class="overflow-btn" title="More" aria-label="More options">
+                <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <!-- Row 2: best, selected, with overflow menu OPEN -->
+          <div class="h-card selected">
+            <span class="check">✓</span>
+            <div class="body">
+              <div class="row1">
+                <span class="h-trail-pill" style="background: hsla(35,80%,55%,0.25); color: var(--accent);">GRIND</span>
+                <span class="time">38:55</span>
+                <span class="badge-best">Best</span>
+              </div>
+              <div class="row2">
+                <svg class="lucide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Mar 08, 2026
+                <span style="opacity: 0.6;">·</span>
+                <span>6 markers</span>
+              </div>
+            </div>
+            <div class="right">
+              <button class="overflow-btn" title="More" aria-label="More options" style="background: var(--muted); border-color: var(--border);">
+                <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              </button>
+              <div class="h-context-menu">
+                <button>
+                  <svg class="lucide" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                  Show splits
+                </button>
+                <button>
+                  <svg class="lucide" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  Export this hike
+                </button>
+                <button class="destructive">
+                  <svg class="lucide" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-2 14a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2L5 6"/></svg>
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Row 3: not selected -->
+          <div class="h-card">
+            <span class="check"></span>
+            <div class="body">
+              <div class="row1">
+                <span class="h-trail-pill">BCMC</span>
+                <span class="time">46:31</span>
+              </div>
+              <div class="row2">
+                <svg class="lucide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Feb 28, 2026
+                <span style="opacity: 0.6;">·</span>
+                <span>7 markers</span>
+              </div>
+            </div>
+            <div class="right">
+              <button class="overflow-btn" title="More" aria-label="More options">
+                <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div class="h-card">
+            <span class="check"></span>
+            <div class="body">
+              <div class="row1">
+                <span class="h-trail-pill" style="background: hsla(35,80%,55%,0.25); color: var(--accent);">GRIND</span>
+                <span class="time">41:08</span>
+              </div>
+              <div class="row2">
+                <svg class="lucide" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                Feb 22, 2026
+                <span style="opacity: 0.6;">·</span>
+                <span>6 markers</span>
+              </div>
+            </div>
+            <div class="right">
+              <button class="overflow-btn" title="More" aria-label="More options">
+                <svg class="lucide" width="18" height="18" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+              </button>
+            </div>
+          </div>
+
+          <div style="height: 80px;"></div>
+        </div>
+
+        <!-- Slide-up compare bar -->
+        <div class="compare-bar">
+          <span class="count">2</span>
+          <span class="label">Compare hikes</span>
+          <svg class="lucide" viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </div>
+
+        <div class="nav">
+          <button>
+            <svg class="lucide" viewBox="0 0 24 24"><polygon points="5 3 19 12 5 21 5 3"/></svg>
+            Track
+          </button>
+          <button class="active">
+            <svg class="lucide" viewBox="0 0 24 24"><path d="M3 3v5h5"/><path d="M3.05 13A9 9 0 1 0 6 5.3L3 8"/><path d="M12 7v5l4 2"/></svg>
+            History
+          </button>
+        </div>
+      </div>
+      <div class="caption">
+        Title + count, gradient PBs (one per trail, accent-tinted), <b>24px</b> checkboxes with hidden +8px hit-area,
+        single overflow menu replaces inline trash, icon-only exports, slide-up compare bar appears when ≥2 selected.
+        <br><br>Selected rows show example menu open on row 2.
+      </div>
+    </div>
+  </div>
+</body>
+</html>

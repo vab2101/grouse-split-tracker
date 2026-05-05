@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useGps } from "@/hooks/use-gps";
+import { useGps, type GpsPosition } from "@/hooks/use-gps";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import {
   HikeAttempt,
@@ -60,6 +60,16 @@ const EXIT_INCREASING_FIXES = 2; // consecutive rising-distance fixes that trigg
 
 // Throttle for raw GPS track capture (skips fixes arriving faster than this).
 const GPS_TRACK_MIN_INTERVAL_MS = 800;
+
+/** Pre-start GPS chip label + color for the start screen. */
+function gpsState(position: GpsPosition | null): { label: string; colorClass: string } {
+  if (!position) return { label: "Searching", colorClass: "text-muted-foreground" };
+  const a = position.accuracy;
+  if (a <= 3)  return { label: "3m",   colorClass: "text-success" };
+  if (a <= 5)  return { label: "5m",   colorClass: "text-success" };
+  if (a <= 10) return { label: "10m",  colorClass: "text-warning" };
+  return         { label: "Poor", colorClass: "text-destructive" };
+}
 
 interface ApproachState {
   marker: number;
@@ -525,20 +535,18 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
 
   // Pre-start view
   if (!isRunning && !attempt) {
-    const gpsColor = position
-      ? position.accuracy <= 10 ? "text-success" : position.accuracy <= 25 ? "text-warning" : "text-destructive"
-      : "text-muted-foreground";
+    const gps = gpsState(position);
 
     return (
-      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-8 px-6">
-        <div className="flex flex-col items-center gap-3">
-          <Mountain className="w-16 h-16 text-primary" />
+      <div className="flex flex-col items-center justify-center min-h-[70vh] gap-7 px-6 py-8">
+        <div className="flex flex-col items-center gap-2">
+          <Mountain
+            className="w-16 h-16 text-primary"
+            style={{ filter: "drop-shadow(0 0 18px hsla(145, 70%, 50%, 0.45)) drop-shadow(0 4px 12px hsla(145, 60%, 30%, 0.3))" }}
+          />
           <h1 className="text-3xl font-bold tracking-tight">{selectedTrail.fullName}</h1>
           <p className="text-muted-foreground text-center text-sm">
             {selectedTrail.distanceKm.toFixed(2)} km · {Math.round(selectedTrail.elevationGain)}m elevation gain
-          </p>
-          <p className="text-muted-foreground text-center text-xs">
-            Start at Grouse Grind timer card trailhead scan
           </p>
         </div>
 
@@ -551,9 +559,11 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
         {onHelpOpen && (
           <button
             onClick={onHelpOpen}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-lg bg-card border border-border text-sm font-medium text-foreground hover:bg-accent touch-manipulation select-none"
+            className="btn-bevel flex items-center gap-3 pl-3 pr-5 py-3 rounded-2xl border border-border text-sm font-medium text-foreground touch-manipulation select-none"
           >
-            <HelpCircle className="w-4 h-4" />
+            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/25 text-primary">
+              <HelpCircle className="w-4 h-4" />
+            </span>
             Instructions
           </button>
         )}
@@ -561,40 +571,31 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
         {trailSwitch}
 
         {!startReady ? (
-          <Button
+          <button
             onClick={() => setStartReady(true)}
-            size="lg"
-            variant="secondary"
-            className="w-48 h-48 rounded-full text-xl font-bold gap-3 flex-col"
+            className="disc-cta-secondary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-lg font-bold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
           >
             <MapPin className="w-10 h-10" />
             In Parking Lot
-          </Button>
+          </button>
         ) : (
-          <div className="relative inline-block">
-            <Button
-              onClick={handleStart}
-              size="lg"
-              className="w-48 h-48 rounded-full text-2xl font-bold gap-3 flex-col"
-            >
-              <Play className="w-10 h-10" />
-              START
-            </Button>
-            <div className="absolute top-0 right-0 flex items-center gap-1 bg-background/90 backdrop-blur-sm border border-border/60 rounded-full px-2 py-0.5 pointer-events-none">
-              {position ? (
-                <>
-                  <Satellite className={`w-3.5 h-3.5 ${gpsColor}`} />
-                  <span className={`text-xs ${gpsColor}`}>{Math.round(position.accuracy)}m</span>
-                </>
-              ) : (
-                <>
-                  <Satellite className="w-3.5 h-3.5 text-muted-foreground animate-pulse" />
-                  <span className="text-xs text-muted-foreground">No GPS</span>
-                </>
-              )}
-            </div>
-          </div>
+          <button
+            onClick={handleStart}
+            className="disc-cta-primary w-48 h-48 rounded-full flex flex-col items-center justify-center gap-2 text-2xl font-extrabold tracking-wide touch-manipulation select-none active:scale-[0.97] transition-transform"
+          >
+            <Play className="w-10 h-10" fill="currentColor" />
+            START
+          </button>
         )}
+
+        <div
+          className={`flex items-center gap-2 px-4 py-2 rounded-full bg-card/90 border border-border backdrop-blur-sm text-sm font-semibold ${gps.colorClass}`}
+          aria-live="polite"
+        >
+          <Satellite className={`w-4 h-4 ${position ? "" : "animate-pulse"}`} />
+          <span className="gps-dot" aria-hidden />
+          {gps.label}
+        </div>
 
         <p className="text-muted-foreground text-xs text-center max-w-xs">
           Tap marker buttons as you pass each {selectedTrail.fullName} marker. Hit "Forgot" if you missed one. Finish at the Grouse lodge timer card scan.
