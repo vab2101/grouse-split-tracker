@@ -5,13 +5,12 @@ import {
   saveAttempts,
   formatDuration,
   exportHikesAsCsv,
-  exportGpsTracksAsCsv,
   attemptTrailId,
   loadHistoryFilter,
   saveHistoryFilter,
 } from "@/lib/hike-store";
 import { TRAILS, type TrailId } from "@/lib/trails";
-import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, MapPin, ArrowRight } from "lucide-react";
+import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, ArrowRight } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -30,12 +29,17 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
 
   useEffect(() => { saveHistoryFilter(filter); }, [filter]);
 
-  // Close overflow menu on any outside interaction.
+  // Close overflow menu on any outside interaction. Defer listener attach by one
+  // tick so the same native click that opened the menu doesn't immediately close it
+  // (React's stopPropagation only stops the synthetic event, not native bubble).
   useEffect(() => {
     if (!menuOpenId) return;
     const close = () => setMenuOpenId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const id = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("click", close);
+    };
   }, [menuOpenId]);
 
   const completed = attempts.filter((a) => a.completed && a.totalTime);
@@ -78,6 +82,16 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
   const handleDelete = (id: string) => {
     const updated = loadAttempts().filter((a) => a.id !== id);
     saveAttempts(updated);
+    onRefresh();
+  };
+
+  const handleDeleteSelected = () => {
+    if (comparing.length === 0) return;
+    const n = comparing.length;
+    if (!window.confirm(`Delete ${n} hike${n === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    const idSet = new Set(comparing);
+    saveAttempts(loadAttempts().filter((a) => !idSet.has(a.id)));
+    setComparing([]);
     onRefresh();
   };
 
@@ -142,8 +156,6 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
       .map(attemptTrailId)
   );
   const compareMixed = compareTrailIds.size > 1;
-
-  const hasGpsTracks = visible.some((a) => a.gpsTrack && a.gpsTrack.length > 0);
 
   return (
     <div className="px-6 py-4 pb-28 relative">
@@ -244,14 +256,14 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
             <Download className="w-4 h-4" />
           </button>
           <button
-            onClick={() => exportGpsTracksAsCsv(visible)}
-            disabled={!hasGpsTracks}
-            aria-label="Export GPS track CSV"
-            title="Export GPS track CSV (one row per raw GPS fix)"
-            className="w-9 h-9 rounded-xl border border-border bg-card text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center justify-center touch-manipulation disabled:opacity-40 disabled:hover:text-muted-foreground disabled:hover:border-border"
+            onClick={handleDeleteSelected}
+            disabled={comparing.length === 0}
+            aria-label="Delete selected hikes"
+            title={comparing.length === 0 ? "Select hikes to delete" : `Delete ${comparing.length} selected hike${comparing.length === 1 ? "" : "s"}`}
+            className="w-9 h-9 rounded-xl border flex items-center justify-center touch-manipulation transition-colors disabled:bg-card disabled:border-border disabled:text-muted-foreground disabled:opacity-40 enabled:bg-destructive/15 enabled:border-destructive/45 enabled:text-destructive enabled:hover:bg-destructive/25"
             style={{ boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.04)" }}
           >
-            <MapPin className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
