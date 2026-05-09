@@ -144,7 +144,8 @@ export const GRIND_ROUTE: readonly GpxPoint[] = [
 //   - M35..M36 = signs 35..36
 //   - GPX gap M37 = sign 37 physically missing
 //   - M38..M40 = signs 38..40
-// Sign data missing for: 10, 11, 12, 13, 15, 27, 32, 34, 37 (interpolated at runtime).
+// Sign data missing for: 10, 11, 12, 13, 27, 32, 34, 37 (interpolated at runtime).
+// (Marker 15 added 2026-05-09 from a tagged ground-truth point.)
 // Marker 0 = trailhead (gondola scan); Marker 41 = finish (chalet scan).
 export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: number; elevation: number }[] = [
   { marker:  0, lat: 49.3711800, lng: -123.0983900, elevation: 296.90 },
@@ -157,11 +158,14 @@ export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: num
   { marker:  7, lat: 49.3724648, lng: -123.0919998, elevation: 470.39 },
   { marker:  8, lat: 49.3727461, lng: -123.0916216, elevation: 490.54 },
   { marker:  9, lat: 49.3730209, lng: -123.0917602, elevation: 500.85 },
-  { marker: 14, lat: 49.3734370, lng: -123.0913745, elevation: 516.38 },
+  // Markers 14, 15, 19 recalibrated 2026-05-09 from in-field "Actual N" tags
+  // (high-accuracy GPS, 4.7m). Marker 15 was previously interpolated.
+  { marker: 14, lat: 49.3736300, lng: -123.0910020, elevation: 552.80 },
+  { marker: 15, lat: 49.3739104, lng: -123.0910287, elevation: 566.20 },
   { marker: 16, lat: 49.3741719, lng: -123.0908515, elevation: 602.87 },
   { marker: 17, lat: 49.3744695, lng: -123.0911744, elevation: 610.49 },
   { marker: 18, lat: 49.3747820, lng: -123.0910444, elevation: 633.44 },
-  { marker: 19, lat: 49.3751091, lng: -123.0908164, elevation: 654.79 },
+  { marker: 19, lat: 49.3751488, lng: -123.0907439, elevation: 644.10 },
   { marker: 20, lat: 49.3753428, lng: -123.0905420, elevation: 661.80 },
   { marker: 21, lat: 49.3755316, lng: -123.0904425, elevation: 686.60 },
   { marker: 22, lat: 49.3758145, lng: -123.0897799, elevation: 714.34 },
@@ -174,10 +178,11 @@ export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: num
   { marker: 30, lat: 49.3772179, lng: -123.0866440, elevation: 871.09 },
   { marker: 31, lat: 49.3773367, lng: -123.0862067, elevation: 891.89 },
   { marker: 33, lat: 49.3776037, lng: -123.0855356, elevation: 931.97 },
-  { marker: 35, lat: 49.3777203, lng: -123.0847848, elevation: 963.97 },
-  { marker: 36, lat: 49.3777626, lng: -123.0844654, elevation: 977.66 },
-  { marker: 38, lat: 49.3777364, lng: -123.0842248, elevation: 1006.09 },
-  { marker: 39, lat: 49.3782864, lng: -123.0839139, elevation: 1049.69 },
+  // Markers 35, 36, 38, 39 recalibrated 2026-05-09 from in-field "Actual N" tags.
+  { marker: 35, lat: 49.3776738, lng: -123.0846598, elevation: 972.40 },
+  { marker: 36, lat: 49.3778420, lng: -123.0844088, elevation: 997.10 },
+  { marker: 38, lat: 49.3779017, lng: -123.0836867, elevation: 1033.60 },
+  { marker: 39, lat: 49.3782683, lng: -123.0838627, elevation: 1047.70 },
   { marker: 40, lat: 49.3788143, lng: -123.0833673, elevation: 1081.75 },
   { marker: 41, lat: 49.3789700, lng: -123.0833000, elevation: 1092.90 },
 ];
