@@ -279,7 +279,7 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
           return (
             <div
               key={a.id}
-              className={`bg-card border rounded-2xl overflow-hidden transition-colors ${
+              className={`bg-card border rounded-2xl transition-colors ${
                 isSelected ? "border-primary/60 shadow-[inset_0_0_0_1px_hsla(145,60%,45%,0.2)]" : "border-border"
               }`}
               style={isSelected ? { background: "linear-gradient(180deg, hsla(145,60%,45%,0.06), hsl(0 0% 4%))" } : undefined}
