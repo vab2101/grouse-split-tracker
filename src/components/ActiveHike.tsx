@@ -33,6 +33,8 @@ import {
 } from "@/lib/trails";
 import TrailProgress from "@/components/TrailProgress";
 import MapBackground from "@/components/MapBackground";
+import { speak, chime, unlockAudio, getAudioEnabled, setAudioEnabled } from "@/lib/audio";
+import { Volume2, VolumeX } from "lucide-react";
 
 interface ActiveHikeProps {
   onFinish: () => void;
@@ -105,6 +107,8 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
   const approachRef = useRef<ApproachState | null>(null);
   const [approachInZone, setApproachInZone] = useState(false);
   const [approachPassing, setApproachPassing] = useState(false);
+  const [audioOn, setAudioOnState] = useState<boolean>(() => getAudioEnabled());
+  const lastAnnouncedMarkerRef = useRef<number | null>(null);
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
@@ -265,9 +269,26 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
       approachRef.current = null;
       setApproachInZone(false);
       setApproachPassing(false);
+      if (!split.skipped) chime("logged");
     },
     []
   );
+
+  // Audio: announce when entering an approach zone for a new marker.
+  // In auto mode: "Approaching marker N". In manual mode: "Tap at marker N"
+  // (helpful for the calibration hike where every marker needs a manual tap).
+  useEffect(() => {
+    if (!isRunning) return;
+    if (!approachInZone) {
+      if (lastAnnouncedMarkerRef.current !== null && lastAnnouncedMarkerRef.current !== nextMarker) {
+        lastAnnouncedMarkerRef.current = null;
+      }
+      return;
+    }
+    if (lastAnnouncedMarkerRef.current === nextMarker) return;
+    lastAnnouncedMarkerRef.current = nextMarker;
+    speak(mode === "manual" ? `Tap at marker ${nextMarker}` : `Approaching marker ${nextMarker}`);
+  }, [approachInZone, nextMarker, mode, isRunning]);
 
   // Auto-tracking: on each GPS fix, maintain closest-approach for the next marker
   // and commit when the user exits the approach zone.
@@ -409,6 +430,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
   }, [position, gpsAccurate, nextMarker, isRunning, attempt, userForcedManual, foregroundCount]);
 
   const handleStart = useCallback(() => {
+    unlockAudio(); // iOS gesture-unlock so later TTS/chime can play
     const a = createAttempt(selectedTrail.id);
     setAttempt(a);
     saveActiveHike(a);
@@ -571,17 +593,36 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
           </div>
         )}
 
-        {onHelpOpen && (
+        <div className="flex items-center gap-2">
+          {onHelpOpen && (
+            <button
+              onClick={onHelpOpen}
+              className="btn-bevel flex items-center gap-3 pl-3 pr-5 py-3 rounded-2xl border border-border text-sm font-medium text-foreground touch-manipulation select-none"
+            >
+              <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/25 text-primary">
+                <HelpCircle className="w-4 h-4" />
+              </span>
+              Instructions
+            </button>
+          )}
           <button
-            onClick={onHelpOpen}
+            onClick={() => {
+              const next = !audioOn;
+              setAudioEnabled(next);
+              setAudioOnState(next);
+              if (next) unlockAudio();
+            }}
+            aria-pressed={audioOn}
+            aria-label={audioOn ? "Audio feedback on" : "Audio feedback off"}
+            title={audioOn ? "Audio feedback on" : "Audio feedback off"}
             className="btn-bevel flex items-center gap-3 pl-3 pr-5 py-3 rounded-2xl border border-border text-sm font-medium text-foreground touch-manipulation select-none"
           >
-            <span className="w-7 h-7 rounded-lg flex items-center justify-center bg-primary/10 border border-primary/25 text-primary">
-              <HelpCircle className="w-4 h-4" />
+            <span className={`w-7 h-7 rounded-lg flex items-center justify-center border ${audioOn ? "bg-primary/10 border-primary/25 text-primary" : "bg-muted border-border text-muted-foreground"}`}>
+              {audioOn ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
             </span>
-            Instructions
+            Audio
           </button>
-        )}
+        </div>
 
         {trailSwitch}
 
