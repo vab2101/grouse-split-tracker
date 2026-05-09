@@ -311,6 +311,7 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
     events.sort((a, b) => a.at - b.at);
     for (const ev of events) {
       if (ev.kind === "tag") {
+        const tagGps = formatCoord(ev.tag.coords);
         rows.push([
           attempt.id,
           trail.name,
@@ -318,8 +319,8 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
           `Tag: ${ev.tag.text}`,
           "false",
           new Date(ev.tag.timestamp).toISOString(),
-          "", // position intentionally omitted
-          "",
+          tagGps.pos,
+          tagGps.acc,
           "",
         ]);
         continue;

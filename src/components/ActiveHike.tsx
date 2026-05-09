@@ -43,8 +43,8 @@ interface ActiveHikeProps {
   trailSwitch?: React.ReactNode;
 }
 
-const LOCK_HOLD_MS = 1000;
-const UNLOCK_HOLD_MS = 2000;
+const LOCK_HOLD_MS = 700;
+const UNLOCK_HOLD_MS = 1400;
 const LOCK_RING_CIRC = 2 * Math.PI * 44; // circumference for r=44 in the centered progress indicator
 
 // Auto-tracking tunables. Design params from issue #36, with Tier 1 accuracy bumps.
@@ -348,13 +348,28 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
     }
   }, [position, isRunning, attempt, nextMarker, nextMarkerPos, mode, commitSplit, approachInZone]);
 
-  // Auto-advance: when stuck at a missing marker with accurate GPS, find the closest
-  // upcoming known marker and auto-skip to it. Triggered on GPS fixes, GPS accuracy
-  // recovery, and app returning to foreground.
+  // Auto-advance: catch up when GPS shows we're past `nextMarker`. Triggers in two cases:
+  //   (a) `nextMarker` itself has no stored position (physically missing on trail), or
+  //   (b) `nextMarker` has a position but along-trail distance shows we've moved past it
+  //       by more than the approach radius — typically after the app was backgrounded
+  //       and missed several auto-detects.
+  // Triggered on GPS fixes, GPS accuracy recovery, and app returning to foreground.
   useEffect(() => {
     if (!isRunning || !attempt || !position || !gpsAccurate || userForcedManual) return;
     if (nextMarker > MAX_MARKERS) return;
-    if (!isMarkerMissing(trail, nextMarker)) return;
+
+    const missing = isMarkerMissing(trail, nextMarker);
+    let movedPast = false;
+    if (!missing) {
+      // Don't fight the in-zone auto-detector — if it's actively tracking nextMarker,
+      // let it commit normally instead of skip-forwarding.
+      if (approachRef.current?.marker === nextMarker) return;
+      const along = alongTrailDistanceToMarker(trail, position.latitude, position.longitude, nextMarker);
+      const radius = Math.max(APPROACH_RADIUS_MIN_M, position.accuracy * APPROACH_RADIUS_ACCURACY_FACTOR);
+      // Past nextMarker by 2× radius = we genuinely missed it (background gap, GPS outage).
+      if (along !== null && along < -2 * radius) movedPast = true;
+    }
+    if (!missing && !movedPast) return;
 
     let closestMarker = -1;
     let closestDist = Infinity;
@@ -757,12 +772,15 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
         </div>
       </div>
 
-      {/* Lock overlay — covers marker area; timer header and bottom row sit above it via z-20 */}
+      {/* Lock overlay — dim the marker area but keep the next marker number visible.
+          Lock icon + text sit at the bottom of the overlay so they don't cover the number. */}
       {isLocked && (
-        <div className="absolute inset-0 z-10 bg-background/80 flex flex-col items-center justify-center gap-3 pointer-events-auto select-none">
-          <Lock className="w-16 h-16 text-muted-foreground" />
-          <p className="text-muted-foreground font-semibold text-lg">Screen Locked</p>
-          <p className="text-muted-foreground text-xs">Hold the lock button for 3 seconds to unlock</p>
+        <div className="absolute inset-0 z-10 bg-background/70 pointer-events-auto select-none">
+          <div className="absolute inset-x-0 bottom-0 flex flex-col items-center gap-1 pb-4">
+            <Lock className="w-8 h-8 text-muted-foreground" />
+            <p className="text-muted-foreground font-semibold text-sm">Screen Locked</p>
+            <p className="text-muted-foreground text-xs">Hold lock button to unlock</p>
+          </div>
         </div>
       )}
 
