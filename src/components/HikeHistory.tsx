@@ -5,12 +5,13 @@ import {
   saveAttempts,
   formatDuration,
   exportHikesAsCsv,
+  exportGpsTracksAsCsv,
   attemptTrailId,
   loadHistoryFilter,
   saveHistoryFilter,
 } from "@/lib/hike-store";
 import { TRAILS, type TrailId } from "@/lib/trails";
-import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, ArrowRight } from "lucide-react";
+import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, MapPin, ArrowRight } from "lucide-react";
 import HikeComparison from "./HikeComparison";
 
 interface HikeHistoryProps {
@@ -343,8 +344,21 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                   {menuOpenId === a.id && (
                     <div
                       role="menu"
-                      className="absolute top-10 right-0 z-30 min-w-[160px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
+                      className="absolute top-10 right-0 z-30 min-w-[180px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
                     >
+                      <button
+                        role="menuitem"
+                        disabled={!a.gpsTrack || a.gpsTrack.length === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(null);
+                          exportGpsTracksAsCsv([a]);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted text-left disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Export GPS track
+                      </button>
                       <button
                         role="menuitem"
                         onClick={(e) => {
