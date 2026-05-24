@@ -153,14 +153,15 @@ export const GRIND_ROUTE: readonly GpxPoint[] = [
 //     route vertex) and dropped — likely cause of phantom auto-M1 firing at trailhead.
 //   - M1/M2/M3 added fresh from 2026-05-24 Tag:#1/#2/3 positions.
 //   - M5/M6/M7/M10/M12 overwritten with 2026-05-24 tag positions (tighter ground truth
-//     than the prior GPX waypoints; Tag:19 matched the existing M19 within 1 m, so
-//     M16+ left untouched).
+//     than the prior GPX waypoints).
 //   - Old M5 entry (originally lat 49.37175 — backtracks south of M7) dropped; sign 8
 //     has no trustworthy GPS yet.
 //   - Real signs 4, 8, 9, 11, 13 have no GPS data; interpolated at runtime.
-//   - M14 moved to user-confirmed Tag:14 position (~25 m past prior canonical, matches
-//     both 2026-05-24 and 2026-05-09 "Actual 14" tags).
-//   - M15 added from 2026-05-24 auto-fire (was previously interpolated).
+//   - M14 moved to Tag:14 (~25 m past pre-2026-05-09 canonical; matches both 2026-05-24
+//     and 2026-05-09 "Actual 14" tags within ~2 m). Supersedes the 2026-05-09 value.
+//   - M15 set from 2026-05-24 auto-fire (supersedes 2026-05-09 "Actual 15" by ~7 m elev).
+//   - M19 was recalibrated 2026-05-09 from an "Actual 19" tag; 2026-05-24 Tag:19 sits
+//     ~6 m from that, well within GPS noise — left as-is.
 // Sign data missing for: 4, 8, 9, 11, 13, 27, 32, 34, 37 (interpolated at runtime).
 // Marker 0 = trailhead (gondola scan); Marker 41 = finish (chalet scan).
 export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: number; elevation: number }[] = [
@@ -180,7 +181,7 @@ export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: num
   { marker: 16, lat: 49.3741719, lng: -123.0908515, elevation: 602.87 },
   { marker: 17, lat: 49.3744695, lng: -123.0911744, elevation: 610.49 },
   { marker: 18, lat: 49.3747820, lng: -123.0910444, elevation: 633.44 },
-  { marker: 19, lat: 49.3751091, lng: -123.0908164, elevation: 654.79 },
+  { marker: 19, lat: 49.3751488, lng: -123.0907439, elevation: 644.10 },
   { marker: 20, lat: 49.3753428, lng: -123.0905420, elevation: 661.80 },
   { marker: 21, lat: 49.3755316, lng: -123.0904425, elevation: 686.60 },
   { marker: 22, lat: 49.3758145, lng: -123.0897799, elevation: 714.34 },
@@ -193,10 +194,11 @@ export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: num
   { marker: 30, lat: 49.3772179, lng: -123.0866440, elevation: 871.09 },
   { marker: 31, lat: 49.3773367, lng: -123.0862067, elevation: 891.89 },
   { marker: 33, lat: 49.3776037, lng: -123.0855356, elevation: 931.97 },
-  { marker: 35, lat: 49.3777203, lng: -123.0847848, elevation: 963.97 },
-  { marker: 36, lat: 49.3777626, lng: -123.0844654, elevation: 977.66 },
-  { marker: 38, lat: 49.3777364, lng: -123.0842248, elevation: 1006.09 },
-  { marker: 39, lat: 49.3782864, lng: -123.0839139, elevation: 1049.69 },
+  // Markers 35, 36, 38, 39 recalibrated 2026-05-09 from in-field "Actual N" tags.
+  { marker: 35, lat: 49.3776738, lng: -123.0846598, elevation: 972.40 },
+  { marker: 36, lat: 49.3778420, lng: -123.0844088, elevation: 997.10 },
+  { marker: 38, lat: 49.3779017, lng: -123.0836867, elevation: 1033.60 },
+  { marker: 39, lat: 49.3782683, lng: -123.0838627, elevation: 1047.70 },
   { marker: 40, lat: 49.3788143, lng: -123.0833673, elevation: 1081.75 },
   { marker: 41, lat: 49.3789700, lng: -123.0833000, elevation: 1092.90 },
 ];

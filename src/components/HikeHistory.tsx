@@ -30,12 +30,17 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
 
   useEffect(() => { saveHistoryFilter(filter); }, [filter]);
 
-  // Close overflow menu on any outside interaction.
+  // Close overflow menu on any outside interaction. Defer listener attach by one
+  // tick so the same native click that opened the menu doesn't immediately close it
+  // (React's stopPropagation only stops the synthetic event, not native bubble).
   useEffect(() => {
     if (!menuOpenId) return;
     const close = () => setMenuOpenId(null);
-    document.addEventListener("click", close);
-    return () => document.removeEventListener("click", close);
+    const id = setTimeout(() => document.addEventListener("click", close), 0);
+    return () => {
+      clearTimeout(id);
+      document.removeEventListener("click", close);
+    };
   }, [menuOpenId]);
 
   const completed = attempts.filter((a) => a.completed && a.totalTime);
@@ -78,6 +83,16 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
   const handleDelete = (id: string) => {
     const updated = loadAttempts().filter((a) => a.id !== id);
     saveAttempts(updated);
+    onRefresh();
+  };
+
+  const handleDeleteSelected = () => {
+    if (comparing.length === 0) return;
+    const n = comparing.length;
+    if (!window.confirm(`Delete ${n} hike${n === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    const idSet = new Set(comparing);
+    saveAttempts(loadAttempts().filter((a) => !idSet.has(a.id)));
+    setComparing([]);
     onRefresh();
   };
 
@@ -142,8 +157,6 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
       .map(attemptTrailId)
   );
   const compareMixed = compareTrailIds.size > 1;
-
-  const hasGpsTracks = visible.some((a) => a.gpsTrack && a.gpsTrack.length > 0);
 
   return (
     <div className="px-6 py-4 pb-28 relative">
@@ -244,14 +257,14 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
             <Download className="w-4 h-4" />
           </button>
           <button
-            onClick={() => exportGpsTracksAsCsv(visible)}
-            disabled={!hasGpsTracks}
-            aria-label="Export GPS track CSV"
-            title="Export GPS track CSV (one row per raw GPS fix)"
-            className="w-9 h-9 rounded-xl border border-border bg-card text-muted-foreground hover:text-primary hover:border-primary/40 flex items-center justify-center touch-manipulation disabled:opacity-40 disabled:hover:text-muted-foreground disabled:hover:border-border"
+            onClick={handleDeleteSelected}
+            disabled={comparing.length === 0}
+            aria-label="Delete selected hikes"
+            title={comparing.length === 0 ? "Select hikes to delete" : `Delete ${comparing.length} selected hike${comparing.length === 1 ? "" : "s"}`}
+            className="w-9 h-9 rounded-xl border flex items-center justify-center touch-manipulation transition-colors disabled:bg-card disabled:border-border disabled:text-muted-foreground disabled:opacity-40 enabled:bg-destructive/15 enabled:border-destructive/45 enabled:text-destructive enabled:hover:bg-destructive/25"
             style={{ boxShadow: "inset 0 1px 0 hsla(0,0%,100%,0.04)" }}
           >
-            <MapPin className="w-4 h-4" />
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       </div>
@@ -266,7 +279,7 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
           return (
             <div
               key={a.id}
-              className={`bg-card border rounded-2xl overflow-hidden transition-colors ${
+              className={`bg-card border rounded-2xl transition-colors ${
                 isSelected ? "border-primary/60 shadow-[inset_0_0_0_1px_hsla(145,60%,45%,0.2)]" : "border-border"
               }`}
               style={isSelected ? { background: "linear-gradient(180deg, hsla(145,60%,45%,0.06), hsl(0 0% 4%))" } : undefined}
@@ -331,8 +344,21 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                   {menuOpenId === a.id && (
                     <div
                       role="menu"
-                      className="absolute top-10 right-0 z-30 min-w-[160px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
+                      className="absolute top-10 right-0 z-30 min-w-[180px] rounded-xl border border-border bg-popover p-1.5 shadow-[0_12px_30px_rgba(0,0,0,0.6)]"
                     >
+                      <button
+                        role="menuitem"
+                        disabled={!a.gpsTrack || a.gpsTrack.length === 0}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setMenuOpenId(null);
+                          exportGpsTracksAsCsv([a]);
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-sm text-foreground hover:bg-muted text-left disabled:opacity-40 disabled:hover:bg-transparent"
+                      >
+                        <MapPin className="w-3.5 h-3.5" />
+                        Export GPS track
+                      </button>
                       <button
                         role="menuitem"
                         onClick={(e) => {
