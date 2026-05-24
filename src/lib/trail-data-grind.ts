@@ -160,8 +160,9 @@ export const GRIND_ROUTE: readonly GpxPoint[] = [
 //   - M14 moved to Tag:14 (~25 m past pre-2026-05-09 canonical; matches both 2026-05-24
 //     and 2026-05-09 "Actual 14" tags within ~2 m). Supersedes the 2026-05-09 value.
 //   - M15 set from 2026-05-24 auto-fire (supersedes 2026-05-09 "Actual 15" by ~7 m elev).
-//   - M19 was recalibrated 2026-05-09 from an "Actual 19" tag; 2026-05-24 Tag:19 sits
-//     ~6 m from that, well within GPS noise — left as-is.
+//   - M19 overwritten with 2026-05-24 Tag:19 (supersedes the 2026-05-09 "Actual 19"
+//     recalibration; user confirmed the May-9 value was the canonical they hiked
+//     against today, so today's tag is the more recent ground truth).
 // Sign data missing for: 4, 8, 9, 11, 13, 27, 32, 34, 37 (interpolated at runtime).
 // Marker 0 = trailhead (gondola scan); Marker 41 = finish (chalet scan).
 export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: number; elevation: number }[] = [
@@ -181,7 +182,7 @@ export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: num
   { marker: 16, lat: 49.3741719, lng: -123.0908515, elevation: 602.87 },
   { marker: 17, lat: 49.3744695, lng: -123.0911744, elevation: 610.49 },
   { marker: 18, lat: 49.3747820, lng: -123.0910444, elevation: 633.44 },
-  { marker: 19, lat: 49.3751488, lng: -123.0907439, elevation: 644.10 },
+  { marker: 19, lat: 49.3751103, lng: -123.0908079, elevation: 659.30 },
   { marker: 20, lat: 49.3753428, lng: -123.0905420, elevation: 661.80 },
   { marker: 21, lat: 49.3755316, lng: -123.0904425, elevation: 686.60 },
   { marker: 22, lat: 49.3758145, lng: -123.0897799, elevation: 714.34 },
