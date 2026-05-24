@@ -144,20 +144,39 @@ export const GRIND_ROUTE: readonly GpxPoint[] = [
 //   - M35..M36 = signs 35..36
 //   - GPX gap M37 = sign 37 physically missing
 //   - M38..M40 = signs 38..40
-// Sign data missing for: 10, 11, 12, 13, 15, 27, 32, 34, 37 (interpolated at runtime).
+//
+// 2026-05-24 reconciliation against hikes a2e8b128 + 4d7075b3 user "Tag: N" annotations
+// (tag labels = real sign numbers, GPS = where user physically passed that sign):
+//   - Original ingestion mis-labelled signs 5..12 as M2..M9 (shift of +3). Empirical
+//     Tag:5/6/7/10/12 GPS matches canonical M2/M3/M4/M7/M9 within 3..20 m. Relabelled
+//     M2..M9 to M5..M12 here. Old M1 (49.3706,-123.0946) was off-route (south of every
+//     route vertex) and dropped — likely cause of phantom auto-M1 firing at trailhead.
+//   - M1/M2/M3 added fresh from 2026-05-24 Tag:#1/#2/3 positions.
+//   - M5/M6/M7/M10/M12 overwritten with 2026-05-24 tag positions (tighter ground truth
+//     than the prior GPX waypoints; Tag:19 matched the existing M19 within 1 m, so
+//     M16+ left untouched).
+//   - Old M5 entry (originally lat 49.37175 — backtracks south of M7) dropped; sign 8
+//     has no trustworthy GPS yet.
+//   - Real signs 4, 8, 9, 11, 13 have no GPS data; interpolated at runtime.
+//   - M14 moved to user-confirmed Tag:14 position (~25 m past prior canonical, matches
+//     both 2026-05-24 and 2026-05-09 "Actual 14" tags).
+//   - M15 added from 2026-05-24 auto-fire (was previously interpolated).
+// Sign data missing for: 4, 8, 9, 11, 13, 27, 32, 34, 37 (interpolated at runtime).
 // Marker 0 = trailhead (gondola scan); Marker 41 = finish (chalet scan).
 export const GRIND_RAW_MARKERS: readonly { marker: number; lat: number; lng: number; elevation: number }[] = [
   { marker:  0, lat: 49.3711800, lng: -123.0983900, elevation: 296.90 },
-  { marker:  1, lat: 49.3705794, lng: -123.0946151, elevation: 369.04 },
-  { marker:  2, lat: 49.3714690, lng: -123.0941133, elevation: 382.62 },
-  { marker:  3, lat: 49.3716772, lng: -123.0938030, elevation: 408.22 },
-  { marker:  4, lat: 49.3720881, lng: -123.0930990, elevation: 434.47 },
-  { marker:  5, lat: 49.3717479, lng: -123.0931021, elevation: 431.91 },
-  { marker:  6, lat: 49.3724030, lng: -123.0926563, elevation: 438.64 },
-  { marker:  7, lat: 49.3724648, lng: -123.0919998, elevation: 470.39 },
-  { marker:  8, lat: 49.3727461, lng: -123.0916216, elevation: 490.54 },
-  { marker:  9, lat: 49.3730209, lng: -123.0917602, elevation: 500.85 },
-  { marker: 14, lat: 49.3734370, lng: -123.0913745, elevation: 516.38 },
+  { marker:  1, lat: 49.3712481, lng: -123.0980176, elevation: 298.80 },
+  { marker:  2, lat: 49.3708453, lng: -123.0955005, elevation: 340.50 },
+  { marker:  3, lat: 49.3710405, lng: -123.0950404, elevation: 358.20 },
+  { marker:  5, lat: 49.3714410, lng: -123.0940870, elevation: 387.50 },
+  { marker:  6, lat: 49.3717247, lng: -123.0937593, elevation: 402.80 },
+  { marker:  7, lat: 49.3721640, lng: -123.0933449, elevation: 425.90 },
+  { marker:  9, lat: 49.3724030, lng: -123.0926563, elevation: 438.64 },
+  { marker: 10, lat: 49.3725425, lng: -123.0918764, elevation: 477.40 },
+  { marker: 11, lat: 49.3727461, lng: -123.0916216, elevation: 490.54 },
+  { marker: 12, lat: 49.3729936, lng: -123.0914813, elevation: 505.40 },
+  { marker: 14, lat: 49.3736189, lng: -123.0909431, elevation: 554.70 },
+  { marker: 15, lat: 49.3739401, lng: -123.0910126, elevation: 573.40 },
   { marker: 16, lat: 49.3741719, lng: -123.0908515, elevation: 602.87 },
   { marker: 17, lat: 49.3744695, lng: -123.0911744, elevation: 610.49 },
   { marker: 18, lat: 49.3747820, lng: -123.0910444, elevation: 633.44 },
