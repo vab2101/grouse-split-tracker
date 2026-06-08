@@ -18,7 +18,7 @@ Track split times at numbered trail markers. Tap button as you pass each marker.
 - All hikes saved to browser localStorage. No account needed.
 - Compare up to 3 hikes side by side.
 - See best and average times per segment across all hikes.
-- Export any hike to CSV (marker, time, coords, accuracy, logging mode, tags).
+- Export any hike to CSV (marker, local time, lat/lng/alt, accuracy, cumulative + segment trail distance, logging mode, tags). Excel-friendly columns; rows sorted oldest hike first, markers ascending.
 
 ## Marker button — what it shows and why
 
