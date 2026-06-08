@@ -1,4 +1,4 @@
-import { DEFAULT_TRAIL_ID, isTrailId, getTrail, type TrailId } from "./trails";
+import { DEFAULT_TRAIL_ID, isTrailId, getTrail, interpolateMarkerProgress, type TrailId } from "./trails";
 
 // Legacy BCMC-only constants kept for any remaining call site that hasn't been migrated to
 // per-trail values yet. New code should read these off the active Trail.
@@ -39,7 +39,7 @@ export interface HikeTag {
   timestamp: number; // ms since epoch
   elapsed: number; // ms since hike start
   text: string;
-  coords?: GpsCoord; // saved but not exported / not shown in UI
+  coords?: GpsCoord; // GPS where the tag was dropped; exported in CSV, not shown in UI
 }
 
 /**
@@ -260,48 +260,99 @@ export function formatSplitDiff(current: number, best?: number): { text: string;
   return { text: `${sign}${formatDuration(Math.abs(diff))}`, positive: diff <= 0 };
 }
 
+/**
+ * Local timestamp in a format Excel parses natively as a date-time:
+ * `YYYY-MM-DD HH:MM:SS` (no `T`, no `Z`), in the device's local timezone.
+ * Plain ISO with a `Z` suffix imports as text in many Excel locales, so we
+ * build the string from local calendar fields instead.
+ */
+function formatExcelLocal(ms: number): string {
+  const d = new Date(ms);
+  const p = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())} ${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`;
+}
+
+/**
+ * Canonical cumulative along-trail distance (m) for a marker number. Known
+ * markers use their dataset distance; markers missing from the dataset use the
+ * split's saved progress override, else linear interpolation between the
+ * nearest known neighbours. Start = 0, finish = full trail length.
+ */
+function cumulativeDistanceForMarker(
+  trail: ReturnType<typeof attemptTrail>,
+  marker: number,
+  override?: Split["progressOverride"],
+): number {
+  if (marker <= 0) return 0;
+  if (marker >= trail.finishMarker) return trail.totalDistanceM;
+  const rec = trail.markersByNum.get(marker);
+  if (rec) return rec.distanceM;
+  if (override) return override.distanceM;
+  return interpolateMarkerProgress(trail, marker).distanceM;
+}
+
 export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
   const headers = [
     "Hike ID",
     "Trail",
-    "Hike Start Date-Time",
+    "Hike Start (local)",
     "Trail Marker Number",
     "Trail Number Forgotten",
-    "Trail Marker Timestamp",
-    "Trail Marker GPS Position",
-    "Trail Marker GPS Accuracy (m)",
+    "Trail Marker Timestamp (local)",
+    "Latitude",
+    "Longitude",
+    "Altitude (m)",
+    "GPS Accuracy (m)",
+    "Cumulative Trail Distance (m)",
+    "Segment Distance (m)",
     "Logging Mode",
   ];
 
-  const formatCoord = (c?: GpsCoord): { pos: string; acc: string } => {
-    if (!c) return { pos: "", acc: "" };
-    const altStr = c.altitude != null ? `,${c.altitude.toFixed(1)}` : "";
+  // Lat / Lng / Alt as separate numeric columns (no packed "lat,lng,alt" cell)
+  // so Excel imports each as a real number.
+  const coordCols = (c?: GpsCoord): { lat: string; lng: string; alt: string; acc: string } => {
+    if (!c) return { lat: "", lng: "", alt: "", acc: "" };
     return {
-      pos: `${c.latitude.toFixed(7)},${c.longitude.toFixed(7)}${altStr}`,
+      lat: c.latitude.toFixed(7),
+      lng: c.longitude.toFixed(7),
+      alt: c.altitude != null ? c.altitude.toFixed(1) : "",
       acc: c.accuracy != null ? c.accuracy.toFixed(1) : "",
     };
   };
 
   const rows: string[][] = [];
-  for (const attempt of attempts) {
+  // Req 4: oldest hike first.
+  const ordered = [...attempts].sort((a, b) => a.startTime - b.startTime);
+  for (const attempt of ordered) {
     if (!attempt.completed) continue;
     const trail = attemptTrail(attempt);
-    const startDateTime = new Date(attempt.startTime).toISOString();
-    const startGps = formatCoord(attempt.startCoords);
+    const startLocal = formatExcelLocal(attempt.startTime);
+
+    // Segment distance accumulates from the last *captured* marker. Missing /
+    // forgotten markers leave their own segment blank so the next captured
+    // marker spans the whole gap — giving an honest distance for speed.
+    let lastCapturedCum = 0; // start line is the origin reference
+
     // Start row (marker 0)
+    const startGps = coordCols(attempt.startCoords);
     rows.push([
       attempt.id,
       trail.name,
-      startDateTime,
+      startLocal,
       "0",
-      "false",
-      startDateTime,
-      startGps.pos,
+      "FALSE",
+      startLocal,
+      startGps.lat,
+      startGps.lng,
+      startGps.alt,
       startGps.acc,
+      "0.0",
+      "",
       "",
     ]);
-    // Build a combined, time-ordered event stream of splits + tags so tags appear
-    // in chronological order next to the marker rows they sit between.
+
+    // Combined, time-ordered stream of splits + tags so tags appear in
+    // chronological order next to the marker rows they sit between.
     type Event =
       | { kind: "split"; at: number; split: Split }
       | { kind: "tag"; at: number; tag: HikeTag };
@@ -309,65 +360,76 @@ export function exportHikesAsCsv(attempts: HikeAttempt[]): void {
     for (const s of attempt.splits) events.push({ kind: "split", at: s.timestamp, split: s });
     for (const t of attempt.tags ?? []) events.push({ kind: "tag", at: t.timestamp, tag: t });
     events.sort((a, b) => a.at - b.at);
+
     for (const ev of events) {
       if (ev.kind === "tag") {
-        const tagGps = formatCoord(ev.tag.coords);
+        const tagGps = coordCols(ev.tag.coords);
         rows.push([
           attempt.id,
           trail.name,
-          startDateTime,
+          startLocal,
           `Tag: ${ev.tag.text}`,
-          "false",
-          new Date(ev.tag.timestamp).toISOString(),
-          tagGps.pos,
+          "FALSE",
+          formatExcelLocal(ev.tag.timestamp),
+          tagGps.lat,
+          tagGps.lng,
+          tagGps.alt,
           tagGps.acc,
+          "", // tags aren't trail markers — no distance
+          "",
           "",
         ]);
         continue;
       }
       const split = ev.split;
-      const markerTimestamp = new Date(split.timestamp).toISOString();
-      const forgotten = split.skipped ? "true" : "false";
-      let gpsPosition = "";
-      let gpsAccuracy = "";
-      if (split.coords) {
-        const { latitude, longitude, altitude } = split.coords;
-        const altStr = altitude != null ? `,${altitude.toFixed(1)}` : "";
-        gpsPosition = `${latitude.toFixed(7)},${longitude.toFixed(7)}${altStr}`;
-        if (split.coords.accuracy != null) {
-          gpsAccuracy = split.coords.accuracy.toFixed(1);
-        }
-      }
+      const gps = coordCols(split.coords);
+      const cum = cumulativeDistanceForMarker(trail, split.marker, split.progressOverride);
+      // Captured markers report a segment from the last captured marker and
+      // become the new reference; forgotten markers leave it blank.
+      const segment = split.skipped ? "" : (cum - lastCapturedCum).toFixed(1);
+      if (!split.skipped) lastCapturedCum = cum;
       rows.push([
         attempt.id,
         trail.name,
-        startDateTime,
+        startLocal,
         String(split.marker),
-        forgotten,
-        markerTimestamp,
-        gpsPosition,
-        gpsAccuracy,
+        split.skipped ? "TRUE" : "FALSE",
+        formatExcelLocal(split.timestamp),
+        gps.lat,
+        gps.lng,
+        gps.alt,
+        gps.acc,
+        cum.toFixed(1),
+        segment,
         split.mode ?? "",
       ]);
     }
+
     // Finish row (per-trail finish marker number)
     if (attempt.endTime) {
-      const endGps = formatCoord(attempt.endCoords);
+      const endGps = coordCols(attempt.endCoords);
+      const cum = trail.totalDistanceM;
       rows.push([
         attempt.id,
         trail.name,
-        startDateTime,
+        startLocal,
         String(trail.finishMarker),
-        "false",
-        new Date(attempt.endTime).toISOString(),
-        endGps.pos,
+        "FALSE",
+        formatExcelLocal(attempt.endTime),
+        endGps.lat,
+        endGps.lng,
+        endGps.alt,
         endGps.acc,
+        cum.toFixed(1),
+        (cum - lastCapturedCum).toFixed(1),
         "manual",
       ]);
     }
   }
 
-  const escape = (cell: string) => `"${cell.replace(/"/g, '""')}"`;
+  // Quote only cells that need it, so numbers and dates import typed (not as text).
+  const escape = (cell: string) =>
+    /[",\n]/.test(cell) ? `"${cell.replace(/"/g, '""')}"` : cell;
   const csvContent = [
     headers.map(escape).join(","),
     ...rows.map((row) => row.map(escape).join(",")),
