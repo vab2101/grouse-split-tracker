@@ -18,6 +18,8 @@ Track split times at numbered trail markers. Tap button as you pass each marker.
 - All hikes saved to browser localStorage. No account needed.
 - Compare up to 3 hikes side by side.
 - See best and average times per segment across all hikes.
+- **Pace plan ("Today's plan").** With at least one recorded hike, the start screen shows a plan of attack: a target finish (1% under your best reference), quarter-checkpoint times pinned to physical markers, and advice built from your own history (habitual second-half fade is detected and the plan deliberately holds time back early to spend up top; your biggest recent-average-vs-best segment gap is called out). During the hike the timer shows a live ± vs plan at the last captured marker, and quarter checkpoints are announced by voice.
+- **Race report.** Expanding a hike in History shows a report: total vs PB and vs recent moving average (EWMA of last 5), a cumulative ahead/behind chart across the full climb, and the first/second-half split.
 - Export any hike to CSV (marker, local time, lat/lng/alt, accuracy, cumulative + segment trail distance, logging mode, tags). Excel-friendly columns; rows sorted oldest hike first, markers ascending.
 
 ## Marker button — what it shows and why

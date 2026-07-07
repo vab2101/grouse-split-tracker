@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useGps, type GpsPosition } from "@/hooks/use-gps";
 import { useWakeLock } from "@/hooks/use-wake-lock";
 import {
@@ -33,8 +33,10 @@ import {
 } from "@/lib/trails";
 import TrailProgress from "@/components/TrailProgress";
 import MapBackground from "@/components/MapBackground";
+import PacePlanCard from "@/components/PacePlanCard";
 import { speak, chime, unlockAudio, getAudioEnabled, setAudioEnabled } from "@/lib/audio";
 import { Volume2, VolumeX } from "lucide-react";
+import { buildPlan } from "@/lib/pace-plan";
 
 interface ActiveHikeProps {
   onFinish: () => void;
@@ -109,6 +111,15 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
   const [approachPassing, setApproachPassing] = useState(false);
   const [audioOn, setAudioOnState] = useState<boolean>(() => getAudioEnabled());
   const lastAnnouncedMarkerRef = useRef<number | null>(null);
+
+  // Pace plan from history — plan of attack for this hike + live "vs plan" deltas.
+  const plan = useMemo(
+    () => buildPlan(loadAttempts(), trail),
+    // Recompute when a hike starts/ends or the selected trail changes.
+    [trail, isRunning], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const planRef = useRef(plan);
+  useEffect(() => { planRef.current = plan; }, [plan]);
 
   // Notify parent of active state
   useEffect(() => { onActiveChange?.(isRunning); }, [isRunning, onActiveChange]);
@@ -269,7 +280,19 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
       approachRef.current = null;
       setApproachInZone(false);
       setApproachPassing(false);
-      if (!split.skipped) chime("logged");
+      if (!split.skipped) {
+        chime("logged");
+        // Eyes-free pacing: announce ahead/behind plan at the quarter checkpoints.
+        const p = planRef.current;
+        const target = p?.cumMsByMarker.get(split.marker);
+        if (p && target !== undefined && p.checkpoints.some((c) => c.marker === split.marker)) {
+          const deltaS = Math.round((split.elapsed - target) / 1000);
+          const mm = Math.floor(Math.abs(deltaS) / 60);
+          const ss = Math.abs(deltaS) % 60;
+          const spoken = mm > 0 ? `${mm} minute${mm === 1 ? "" : "s"} ${ss} seconds` : `${ss} seconds`;
+          speak(deltaS <= 0 ? `${spoken} ahead of plan` : `${spoken} behind plan`);
+        }
+      }
     },
     []
   );
@@ -570,6 +593,18 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
     return getProgressForMarker(trail, attempt ? attempt.splits.length : 0);
   })();
 
+  // Live "vs plan" delta at the last captured marker.
+  const planDelta = (() => {
+    if (!plan || !attempt) return null;
+    for (let i = attempt.splits.length - 1; i >= 0; i--) {
+      const s = attempt.splits[i];
+      if (s.skipped) continue;
+      const target = plan.cumMsByMarker.get(s.marker);
+      if (target !== undefined) return { marker: s.marker, deltaMs: s.elapsed - target };
+    }
+    return null;
+  })();
+
   // Pre-start view
   if (!isRunning && !attempt) {
     const gps = gpsState(position);
@@ -625,6 +660,8 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
         </div>
 
         {trailSwitch}
+
+        {plan && <PacePlanCard plan={plan} />}
 
         {!startReady ? (
           <div className="flex flex-col items-center gap-3">
@@ -706,6 +743,14 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
                       {(markerProgress.distanceM / 1000).toFixed(2)} km / {TRAIL_DISTANCE_KM.toFixed(2)} km ({markerProgress.distancePct.toFixed(0)}%)
                     </span>
                   </div>
+                  {planDelta && (
+                    <div className={`flex items-center justify-center gap-1 text-sm font-semibold ${planDelta.deltaMs <= 0 ? "text-success" : "text-warning"}`}>
+                      <span>
+                        {planDelta.deltaMs <= 0 ? "−" : "+"}{formatDuration(Math.abs(planDelta.deltaMs))} vs plan
+                        <span className="text-muted-foreground font-normal"> @ m{planDelta.marker}</span>
+                      </span>
+                    </div>
+                  )}
                 </div>
           </div>
           {/* GPS accuracy indicator */}
