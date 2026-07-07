@@ -13,6 +13,7 @@ import {
 import { TRAILS, type TrailId } from "@/lib/trails";
 import { Trophy, Calendar, Clock, Trash2, Download, ChevronDown, ChevronUp, Tag as TagIcon, MoreVertical, MapPin, ArrowRight } from "lucide-react";
 import HikeComparison from "./HikeComparison";
+import HikeReport from "./HikeReport";
 
 interface HikeHistoryProps {
   attempts: HikeAttempt[];
@@ -467,6 +468,7 @@ export default function HikeHistory({ attempts, onRefresh }: HikeHistoryProps) {
                       );
                     })()}
                   </div>
+                  <HikeReport attempt={a} trail={trail} attempts={completed} />
                 </div>
               )}
             </div>
