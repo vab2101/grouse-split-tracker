@@ -51,6 +51,9 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             trail markers, which I manually logged.
 
             I will add the Grind once it opens for the 2026 season.
+
+            Questions, bugs or ideas?{" "}
+            <a href="mailto:vivek.a.b+gst@gmail.com?subject=Grouse%20Split%20Tracker">Email me</a>.
           </p>
 
           {/* Getting started */}
