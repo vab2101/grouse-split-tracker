@@ -1,6 +1,15 @@
 name = "grouse-split-tracker"
+main = "worker/index.ts"
 compatibility_date = "2026-04-07"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 not_found_handling = "single-page-application"
+# Only /api/* hits the Worker script; everything else is served straight from assets.
+run_worker_first = ["/api/*"]
+
+# Usage events (replaces GoatCounter). The dataset is created on first write.
+[[analytics_engine_datasets]]
+binding = "EVENTS"
+dataset = "grouse_split_tracker_events"
