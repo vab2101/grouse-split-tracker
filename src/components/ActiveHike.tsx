@@ -37,6 +37,7 @@ import PacePlanCard from "@/components/PacePlanCard";
 import { speak, chime, unlockAudio, getAudioEnabled, setAudioEnabled } from "@/lib/audio";
 import { Volume2, VolumeX } from "lucide-react";
 import { buildPlan } from "@/lib/pace-plan";
+import { trackEvent } from "@/lib/analytics";
 
 interface ActiveHikeProps {
   onFinish: () => void;
@@ -459,7 +460,7 @@ export default function ActiveHike({ onFinish, onActiveChange, onHelpOpen, trail
     saveActiveHike(a);
     setElapsed(0);
     setIsRunning(true);
-    window.goatcounter?.count({ path: "hike-start", title: "Hike Started", event: true });
+    trackEvent("hike-start", { trail: selectedTrail.id });
     // startCoords is captured from the first GPS fix after start — see the effect below.
   }, [selectedTrail.id]);
 

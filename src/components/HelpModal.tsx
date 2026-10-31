@@ -38,8 +38,8 @@ export default function HelpModal({ open, onOpenChange }: HelpModalProps) {
             
             This is a website that serves up a big Javascript file that runs locally
             on your phone. All data stays on-device. There are no accounts, no social,
-            no Google/Meta/Big Brother analytics, no cookies. I'm using <a href="https://www.goatcounter.com">Goatcounter</a> for
-            a privacy-preserving usage counter that increments once per Start button push.
+            no Google/Meta/Big Brother analytics, no cookies. There's a privacy-preserving usage counter
+            (Cloudflare Analytics Engine) that increments once per Start button push.
             The app is designed to work offline once loaded, since coverage can be spotty
             Install it to your home screen for the best experience on trail. This tells
             iOS not to be too aggressive in killing the app or deleting its data, like
